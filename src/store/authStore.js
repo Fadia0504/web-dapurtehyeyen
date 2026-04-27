@@ -17,6 +17,7 @@ export const useAuthStore = create((set) => ({
       .eq('id', userId)
       .single()
     set({ profile: data })
+    return data
   },
 
   logout: async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../store/authStore'
@@ -39,11 +39,13 @@ const statusLabels = {
 }
 
 export default function AdminDashboard() {
-  const { profile, logout } = useAuthStore()
+  const { profile } = useAuthStore()
   const navigate = useNavigate()
   const [stats, setStats] = useState({ orders: 0, customers: 0, foods: 0, revenue: 0 })
   const [orders, setOrders] = useState([])
   const [activeTab, setActiveTab] = useState('pending')
+  const [adminDropdown, setAdminDropdown] = useState(false)
+  const adminDropRef = useRef()
   const [notifications] = useState([
     { text: 'Pesanan baru #ORD-001 masuk', time: '14:32', color: 'bg-orange-100 text-orange-500' },
     { text: 'Pembayaran berhasil dikonfirmasi', time: '14:28', color: 'bg-green-100 text-green-500' },
@@ -53,6 +55,17 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchStats()
     fetchOrders()
+  }, [])
+
+  // Tutup dropdown kalau klik di luar
+  useEffect(() => {
+    const handler = (e) => {
+      if (adminDropRef.current && !adminDropRef.current.contains(e.target)) {
+        setAdminDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
   }, [])
 
   async function fetchStats() {
@@ -75,16 +88,16 @@ export default function AdminDashboard() {
   }
 
   const handleLogout = async () => {
-    await logout()
-    navigate('/')
+    await supabase.auth.signOut()
+    navigate('/login')
   }
 
   const filteredOrders = orders.filter(o => o.status === activeTab)
   const tabs = [
-    { key: 'pending', label: 'Menunggu', color: 'text-yellow-500 border-yellow-500' },
-    { key: 'confirmed', label: 'Dikonfirmasi', color: 'text-blue-500 border-blue-500' },
-    { key: 'processing', label: 'Diproses', color: 'text-orange-500 border-orange-500' },
-    { key: 'delivered', label: 'Dikirim', color: 'text-purple-500 border-purple-500' },
+    { key: 'pending', label: 'Menunggu' },
+    { key: 'confirmed', label: 'Dikonfirmasi' },
+    { key: 'processing', label: 'Diproses' },
+    { key: 'delivered', label: 'Dikirim' },
   ]
 
   const statCards = [
@@ -94,22 +107,26 @@ export default function AdminDashboard() {
     { label: 'Total Menu', value: stats.foods, icon: '🍽️', bg: 'bg-purple-50', growth: '+3.1%' },
   ]
 
+  const adminName = profile?.full_name || 'Admin'
+
   return (
     <div className="flex min-h-screen bg-gray-50">
 
       {/* SIDEBAR */}
       <aside className="w-56 bg-white shadow-sm flex flex-col py-6 fixed h-full z-20">
         <div className="px-6 mb-8">
-          <Link to="/" className="flex items-center gap-2">
-            <img src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/logo.png"
-              alt="Logo" className="h-8 w-auto" />
-            <span className="font-black text-orange-500 text-lg">Dapur Teh Yeyen</span>
+          <Link to="/admin" className="flex items-center gap-2">
+            <img
+              src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/rawr.png"
+              alt="Logo" className="h-8 w-auto"
+            />
+            <span className="font-black text-orange-500 text-lg leading-tight">Dapur Teh Yeyen</span>
           </Link>
         </div>
 
-        {/* Dashboard link */}
         <div className="px-3 mb-2">
-          <Link to="/admin" className="flex items-center gap-3 px-4 py-3 rounded-xl bg-orange-50 text-orange-500 text-sm font-medium">
+          <Link to="/admin"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl bg-orange-50 text-orange-500 text-sm font-medium">
             <HomeIcon className="w-5 h-5" />
             Dashboard
           </Link>
@@ -145,10 +162,13 @@ export default function AdminDashboard() {
           <div className="flex-1 max-w-md">
             <div className="relative">
               <MagnifyingGlassIcon className="w-5 h-5 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input placeholder="Cari pesanan, menu, pelanggan..."
-                className="w-full bg-gray-50 border border-gray-100 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-orange-300 transition" />
+              <input
+                placeholder="Cari pesanan, menu, pelanggan..."
+                className="w-full bg-gray-50 border border-gray-100 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-orange-300 transition"
+              />
             </div>
           </div>
+
           <div className="ml-auto flex items-center gap-4">
             <button className="relative text-gray-500 hover:text-orange-500 transition">
               <BellIcon className="w-6 h-6" />
@@ -156,21 +176,37 @@ export default function AdminDashboard() {
                 {notifications.length}
               </span>
             </button>
-            <div className="flex items-center gap-3 pl-4 border-l border-gray-100">
-              <div className="w-9 h-9 bg-orange-100 rounded-full flex items-center justify-center font-bold text-orange-500">
-                A
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-800">Admin</p>
-                <p className="text-xs text-gray-400">Super Administrator</p>
-              </div>
-              <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+
+            {/* DROPDOWN ADMIN */}
+            <div className="relative" ref={adminDropRef}>
+              <button
+                onClick={() => setAdminDropdown(prev => !prev)}
+                className="flex items-center gap-3 pl-4 border-l border-gray-100 hover:bg-gray-50 px-3 py-2 rounded-xl transition">
+                <div className="w-9 h-9 bg-orange-100 rounded-full flex items-center justify-center font-bold text-orange-500 text-sm">
+                  {adminName[0].toUpperCase()}
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-gray-800">{adminName.split(' ')[0]}</p>
+                  <p className="text-xs text-gray-400">Super Administrator</p>
+                </div>
+                <ChevronDownIcon className={`w-4 h-4 text-gray-400 transition-transform ${adminDropdown ? 'rotate-180' : ''}`} />
+              </button>
+
+              {adminDropdown && (
+                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50">
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-red-50 hover:text-red-500 transition w-full text-left">
+                    <ArrowRightOnRectangleIcon className="w-5 h-5" />
+                    Logout
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </header>
 
         <main className="p-8">
-          {/* Page title */}
           <div className="mb-8">
             <h1 className="text-2xl font-black text-gray-900" style={{fontFamily:'Playfair Display, serif'}}>Dashboard</h1>
             <p className="text-gray-400 text-sm mt-1">Selamat datang kembali, Admin! Berikut ringkasan aktivitas platform.</p>
@@ -197,8 +233,6 @@ export default function AdminDashboard() {
               <div className="p-6 border-b border-gray-50">
                 <h2 className="font-bold text-gray-900">Pesanan Berjalan</h2>
               </div>
-
-              {/* Tabs */}
               <div className="flex gap-1 px-6 pt-4">
                 {tabs.map(tab => (
                   <button key={tab.key}
@@ -207,14 +241,12 @@ export default function AdminDashboard() {
                       ? 'bg-orange-500 text-white'
                       : 'text-gray-500 hover:bg-gray-50'}`}>
                     {tab.label}
-                    <span className="ml-2 bg-white/20 text-xs px-1.5 py-0.5 rounded-full">
+                    <span className="ml-1.5 text-xs opacity-80">
                       {orders.filter(o => o.status === tab.key).length}
                     </span>
                   </button>
                 ))}
               </div>
-
-              {/* Table */}
               <div className="p-6">
                 <table className="w-full">
                   <thead>
@@ -228,7 +260,11 @@ export default function AdminDashboard() {
                   </thead>
                   <tbody>
                     {filteredOrders.length === 0 ? (
-                      <tr><td colSpan={5} className="text-center text-gray-400 py-8 text-sm">Tidak ada pesanan</td></tr>
+                      <tr>
+                        <td colSpan={5} className="text-center text-gray-400 py-8 text-sm">
+                          Tidak ada pesanan
+                        </td>
+                      </tr>
                     ) : filteredOrders.map(order => (
                       <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50/50">
                         <td className="py-3 text-sm font-medium text-gray-800">#{order.id.slice(0,8).toUpperCase()}</td>
@@ -250,9 +286,8 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* NOTIFIKASI */}
+            {/* KANAN */}
             <div className="space-y-4">
-              {/* Pesanan Terbaru */}
               <div className="bg-white rounded-2xl shadow-sm p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="font-bold text-gray-900">Pesanan Terbaru</h2>
@@ -276,10 +311,12 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                   ))}
+                  {orders.length === 0 && (
+                    <p className="text-center text-gray-400 text-xs py-4">Belum ada pesanan</p>
+                  )}
                 </div>
               </div>
 
-              {/* Notifikasi Sistem */}
               <div className="bg-white rounded-2xl shadow-sm p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="font-bold text-gray-900">Notifikasi Sistem</h2>

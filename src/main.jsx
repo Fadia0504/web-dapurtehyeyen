@@ -6,12 +6,24 @@ import App from './App.jsx'
 import { supabase } from './lib/supabase'
 import { useAuthStore } from './store/authStore'
 
-// Listen auth state
+supabase.auth.getSession().then(({ data: { session } }) => {
+  const { setUser, fetchProfile, setLoading } = useAuthStore.getState()
+  if (session?.user) {
+    setUser(session.user)
+    fetchProfile(session.user.id).then(() => setLoading(false))
+  } else {
+    setLoading(false)
+  }
+})
+
 supabase.auth.onAuthStateChange((_event, session) => {
   const { setUser, fetchProfile, setLoading } = useAuthStore.getState()
   setUser(session?.user ?? null)
-  if (session?.user) fetchProfile(session.user.id)
-  setLoading(false)
+  if (session?.user) {
+    fetchProfile(session.user.id).then(() => setLoading(false))
+  } else {
+    setLoading(false)
+  }
 })
 
 createRoot(document.getElementById('root')).render(

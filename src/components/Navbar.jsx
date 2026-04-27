@@ -2,7 +2,10 @@ import { useState, useRef, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useCartStore } from '../store/cartStore'
 import { useAuthStore } from '../store/authStore'
-import { MagnifyingGlassIcon, ShoppingCartIcon, ChevronDownIcon, Squares2X2Icon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline'
+import {
+  MagnifyingGlassIcon, ShoppingCartIcon,
+  ChevronDownIcon, Squares2X2Icon, ArrowRightOnRectangleIcon
+} from '@heroicons/react/24/outline'
 
 export default function Navbar() {
   const items = useCartStore(state => state.items)
@@ -14,7 +17,9 @@ export default function Navbar() {
   const dropRef = useRef()
 
   useEffect(() => {
-    const handler = (e) => { if (dropRef.current && !dropRef.current.contains(e.target)) setDropdown(false) }
+    const handler = (e) => {
+      if (dropRef.current && !dropRef.current.contains(e.target)) setDropdown(false)
+    }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
@@ -48,8 +53,10 @@ export default function Navbar() {
   return (
     <nav className="bg-white px-8 py-4 flex justify-between items-center sticky top-0 z-50 shadow-sm">
       <Link to="/" className="flex items-center gap-2">
-        <img src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/rawr.png"
-          alt="Logo" className="h-10 w-auto object-contain" />
+        <img
+          src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/rawr.png"
+          alt="Logo" className="h-10 w-auto object-contain"
+        />
         <span className="text-xl font-black text-orange-500" style={{fontFamily:'Playfair Display, serif'}}>
           Dapur Teh Yeyen
         </span>
@@ -58,7 +65,9 @@ export default function Navbar() {
       <div className="flex gap-8 items-center">
         {links.map(l => (
           <Link key={l.label} to={l.to} onClick={l.onClick}
-            className={`text-sm font-medium transition ${pathname === l.to ? 'text-orange-500 border-b-2 border-orange-500 pb-1' : 'text-gray-600 hover:text-orange-500'}`}>
+            className={`text-sm font-medium transition ${pathname === l.to
+              ? 'text-orange-500 border-b-2 border-orange-500 pb-1'
+              : 'text-gray-600 hover:text-orange-500'}`}>
             {l.label}
           </Link>
         ))}
@@ -77,7 +86,6 @@ export default function Navbar() {
           )}
         </Link>
 
-        {/* AUTH */}
         {user ? (
           <div className="relative" ref={dropRef}>
             <button onClick={() => setDropdown(!dropdown)}
@@ -91,7 +99,9 @@ export default function Navbar() {
 
             {dropdown && (
               <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-                <Link to="/dashboard" onClick={() => setDropdown(false)}
+                <Link
+                  to={profile?.role === 'admin' ? '/admin' : '/dashboard'}
+                  onClick={() => setDropdown(false)}
                   className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-500 transition">
                   <Squares2X2Icon className="w-5 h-5" />
                   Dashboard

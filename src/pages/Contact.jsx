@@ -40,10 +40,10 @@ export default function Contact() {
 
             <div className="space-y-5">
               {[
-                { icon: <MapPinIcon className="w-5 h-5 text-orange-500" />, label: 'Alamat', value: 'Jl. Dapur Teh Yeyen No. 123, Jakarta Selatan' },
-                { icon: <EnvelopeIcon className="w-5 h-5 text-orange-500" />, label: 'Email', value: 'dapur@tehyeyen.com' },
-                { icon: <PhoneIcon className="w-5 h-5 text-orange-500" />, label: 'Telepon / WhatsApp', value: '+62 812-3456-7890' },
-                { icon: <ClockIcon className="w-5 h-5 text-orange-500" />, label: 'Jam Operasional', value: 'Setiap Hari, 08.00 – 22.00 WIB' },
+                { icon: <MapPinIcon className="w-5 h-5 text-orange-500" />, label: 'Alamat', value: 'Cluster, Pd. Jaya, Kec. Sepatan, Kabupaten Tangerang, Banten 15520' },
+                { icon: <EnvelopeIcon className="w-5 h-5 text-orange-500" />, label: 'Email', value: 'Toryen0705.com' },
+                { icon: <PhoneIcon className="w-5 h-5 text-orange-500" />, label: 'Telepon / WhatsApp', value: '0812-1120-3366' },
+                { icon: <ClockIcon className="w-5 h-5 text-orange-500" />, label: 'Jam Operasional', value: 'Senin-Jumat, 08.00 – 22.00 WIB' },
               ].map((c, i) => (
                 <div key={i} className="flex gap-4 items-start">
                   <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -143,7 +143,7 @@ export default function Contact() {
           <div className="bg-white rounded-3xl overflow-hidden shadow-sm">
             <iframe
               title="Lokasi Dapur Teh Yeyen"
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3966.521260322364!2d106.8195613!3d-6.2087634!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e69f3e945e34b9d%3A0x5371bf0fdad786a2!2sJakarta%20Selatan!5e0!3m2!1sid!2sid!4v1714000000000"
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3967.0823203630453!2d106.58457747355278!3d-6.11962136000616!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e6a01a4cee2f7ad%3A0xbafa4424e464dfaa!2sDapur%20Teh%20Yeyen!5e0!3m2!1sid!2sid!4v1777271286273!5m2!1sid!2sid"
               width="100%"
               height="100%"
               className="min-h-[380px]"
