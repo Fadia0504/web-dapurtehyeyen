@@ -11,6 +11,8 @@ import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import Navbar from './components/Navbar'
+import FoodDetail from './pages/FoodDetail'
+import Payment from './pages/Payment'
 
 function App() {
   return (
@@ -34,6 +36,8 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/menu/:id" element={<FoodDetail />} />
+            <Route path="/payment" element={<Payment />} />
           </Routes>
         </>
       } />
