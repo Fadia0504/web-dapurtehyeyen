@@ -13,6 +13,7 @@ import AdminDashboard from './pages/admin/AdminDashboard'
 import Navbar from './components/Navbar'
 import FoodDetail from './pages/FoodDetail'
 import Payment from './pages/Payment'
+import AdminFoods from './pages/admin/AdminFoods'
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
       {/* Admin - tanpa Navbar */}
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/admin/*" element={<AdminDashboard />} />
+      <Route path="/admin/foods" element={<AdminFoods />} />
 
       {/* Public - dengan Navbar */}
       <Route path="/*" element={

@@ -1,27 +1,13 @@
 import { useEffect, useState, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../store/authStore'
+import AdminSidebar from '../../components/admin/AdminSidebar'
 import {
-  HomeIcon, ShoppingBagIcon, CakeIcon, TagIcon,
-  UserGroupIcon, CogIcon, ArrowRightOnRectangleIcon,
   BellIcon, MagnifyingGlassIcon, ChevronDownIcon,
-  DocumentChartBarIcon, StarIcon
+  ArrowRightOnRectangleIcon, ShoppingBagIcon,
+  CheckCircleIcon, TruckIcon, HeartIcon
 } from '@heroicons/react/24/outline'
-
-const sidebarItems = [
-  { section: 'MANAGEMENT', items: [
-    { icon: ShoppingBagIcon, label: 'Pesanan', to: '/admin/orders' },
-    { icon: CakeIcon, label: 'Menu Makanan', to: '/admin/foods' },
-    { icon: TagIcon, label: 'Kategori', to: '/admin/categories' },
-    { icon: UserGroupIcon, label: 'Pelanggan', to: '/admin/customers' },
-  ]},
-  { section: 'SISTEM', items: [
-    { icon: StarIcon, label: 'Ulasan & Testimoni', to: '/admin/reviews' },
-    { icon: DocumentChartBarIcon, label: 'Laporan', to: '/admin/reports' },
-    { icon: CogIcon, label: 'Pengaturan', to: '/admin/settings' },
-  ]},
-]
 
 const statusColors = {
   pending: 'bg-yellow-100 text-yellow-600',
@@ -57,7 +43,6 @@ export default function AdminDashboard() {
     fetchOrders()
   }, [])
 
-  // Tutup dropdown kalau klik di luar
   useEffect(() => {
     const handler = (e) => {
       if (adminDropRef.current && !adminDropRef.current.contains(e.target)) {
@@ -111,52 +96,9 @@ export default function AdminDashboard() {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
+      <AdminSidebar />
 
-      {/* SIDEBAR */}
-      <aside className="w-56 bg-white shadow-sm flex flex-col py-6 fixed h-full z-20">
-        <div className="px-6 mb-8">
-          <Link to="/admin" className="flex items-center gap-2">
-            <img
-              src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/rawr.png"
-              alt="Logo" className="h-8 w-auto"
-            />
-            <span className="font-black text-orange-500 text-lg leading-tight">Dapur Teh Yeyen</span>
-          </Link>
-        </div>
-
-        <div className="px-3 mb-2">
-          <Link to="/admin"
-            className="flex items-center gap-3 px-4 py-3 rounded-xl bg-orange-50 text-orange-500 text-sm font-medium">
-            <HomeIcon className="w-5 h-5" />
-            Dashboard
-          </Link>
-        </div>
-
-        {sidebarItems.map(section => (
-          <div key={section.section} className="px-3 mb-4">
-            <p className="text-xs text-gray-400 font-semibold px-4 mb-2">{section.section}</p>
-            {section.items.map(item => (
-              <Link key={item.label} to={item.to}
-                className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 hover:text-orange-500 text-sm font-medium transition mb-1">
-                <item.icon className="w-5 h-5" />
-                {item.label}
-              </Link>
-            ))}
-          </div>
-        ))}
-
-        <div className="mt-auto px-3">
-          <button onClick={handleLogout}
-            className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-500 hover:bg-red-50 hover:text-red-500 text-sm font-medium transition w-full">
-            <ArrowRightOnRectangleIcon className="w-5 h-5" />
-            Logout
-          </button>
-        </div>
-      </aside>
-
-      {/* MAIN */}
       <div className="flex-1 ml-56">
-
         {/* TOPBAR */}
         <header className="bg-white border-b border-gray-100 px-8 py-4 flex items-center gap-4 sticky top-0 z-10">
           <div className="flex-1 max-w-md">
@@ -177,7 +119,6 @@ export default function AdminDashboard() {
               </span>
             </button>
 
-            {/* DROPDOWN ADMIN */}
             <div className="relative" ref={adminDropRef}>
               <button
                 onClick={() => setAdminDropdown(prev => !prev)}
@@ -194,8 +135,7 @@ export default function AdminDashboard() {
 
               {adminDropdown && (
                 <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50">
-                  <button
-                    onClick={handleLogout}
+                  <button onClick={handleLogout}
                     className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-red-50 hover:text-red-500 transition w-full text-left">
                     <ArrowRightOnRectangleIcon className="w-5 h-5" />
                     Logout
@@ -227,7 +167,6 @@ export default function AdminDashboard() {
           </div>
 
           <div className="grid grid-cols-3 gap-6">
-
             {/* PESANAN BERJALAN */}
             <div className="col-span-2 bg-white rounded-2xl shadow-sm">
               <div className="p-6 border-b border-gray-50">
