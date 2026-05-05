@@ -6,10 +6,11 @@ export const useCartStore = create((set, get) => ({
   addItem: (food) => {
     const items = get().items
     const existing = items.find(i => i.id === food.id)
+    const incomingQty = food.qty || 1
     if (existing) {
-      set({ items: items.map(i => i.id === food.id ? { ...i, qty: i.qty + 1 } : i) })
+      set({ items: items.map(i => i.id === food.id ? { ...i, qty: i.qty + incomingQty } : i) })
     } else {
-      set({ items: [...items, { ...food, qty: 1 }] })
+      set({ items: [...items, { ...food, qty: incomingQty }] })
     }
   },
 
