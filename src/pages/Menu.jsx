@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useCartStore } from '../store/cartStore'
+import { useAuthStore } from '../store/authStore'
 import {
-  MagnifyingGlassIcon, HeartIcon, StarIcon,
-  AdjustmentsHorizontalIcon, ChevronDownIcon, PlusIcon
+  MagnifyingGlassIcon, HeartIcon, AdjustmentsHorizontalIcon,
+  ChevronDownIcon, PlusIcon, XMarkIcon, UserIcon, LockClosedIcon
 } from '@heroicons/react/24/outline'
-import { StarIcon as StarSolid } from '@heroicons/react/24/solid'
+import { StarIcon as StarSolid, HeartIcon as HeartSolid } from '@heroicons/react/24/solid'
 
 const priceRanges = [
   { label: 'Semua Harga', min: 0, max: Infinity },
@@ -16,7 +17,74 @@ const priceRanges = [
   { label: 'Di atas Rp 30.000', min: 30000, max: Infinity },
 ]
 
+// Komponen Popup Login
+function LoginPopup({ show, onClose, message, navigate }) {
+  if (!show) return null
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6 text-center">
+        <button onClick={onClose}
+          className="absolute top-4 right-4 w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition">
+          <XMarkIcon className="w-5 h-5 text-gray-400" />
+        </button>
+
+        <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <LockClosedIcon className="w-8 h-8 text-orange-500" />
+        </div>
+
+        <h2 className="text-lg font-black text-gray-900 mb-2">Login Diperlukan</h2>
+        <p className="text-sm text-gray-500 mb-6 leading-relaxed">{message}</p>
+
+        <div className="flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 border border-gray-200 text-gray-600 py-3 rounded-2xl font-semibold text-sm hover:bg-gray-50 transition">
+            Nanti Saja
+          </button>
+          <button
+            onClick={() => { onClose(); navigate('/login') }}
+            className="flex-1 bg-orange-500 text-white py-3 rounded-2xl font-semibold text-sm hover:bg-orange-600 transition flex items-center justify-center gap-2">
+            <UserIcon className="w-4 h-4" />
+            Login Sekarang
+          </button>
+        </div>
+
+        <p className="text-xs text-gray-400 mt-4">
+          Belum punya akun?{' '}
+          <button
+            onClick={() => { onClose(); navigate('/register') }}
+            className="text-orange-500 font-medium hover:underline">
+            Daftar gratis
+          </button>
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// Komponen Toast Notifikasi
+function Toast({ show, message, type }) {
+  if (!show) return null
+  return (
+    <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-lg flex items-center gap-3 transition-all ${
+      type === 'success' ? 'bg-green-500 text-white'
+      : type === 'wishlist' ? 'bg-red-500 text-white'
+      : type === 'remove' ? 'bg-gray-700 text-white'
+      : 'bg-gray-800 text-white'
+    }`}>
+      <span className="text-lg">
+        {type === 'success' ? '🛒' : type === 'wishlist' ? '❤️' : type === 'remove' ? '🗑️' : 'ℹ️'}
+      </span>
+      <span className="text-sm font-medium">{message}</span>
+    </div>
+  )
+}
+
 export default function Menu() {
+  const navigate = useNavigate()
+  const { user } = useAuthStore()
+  const addItem = useCartStore(state => state.addItem)
+
   const [foods, setFoods] = useState([])
   const [categories, setCategories] = useState([])
   const [activeCategory, setActiveCategory] = useState('Semua')
@@ -25,25 +93,94 @@ export default function Menu() {
   const [sortBy, setSortBy] = useState('popular')
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
-  const [wishlist, setWishlist] = useState([])
-  const addItem = useCartStore(state => state.addItem)
+  const [wishlistIds, setWishlistIds] = useState(new Set())
+  const [wishlistMap, setWishlistMap] = useState({}) // foodId -> wishlistId
+
+  // Popup & Toast state
+  const [showLoginPopup, setShowLoginPopup] = useState(false)
+  const [loginPopupMsg, setLoginPopupMsg] = useState('')
+  const [toast, setToast] = useState({ show: false, message: '', type: '' })
 
   useEffect(() => {
     fetchData()
   }, [])
 
+  useEffect(() => {
+    if (user) fetchWishlist()
+    else { setWishlistIds(new Set()); setWishlistMap({}) }
+  }, [user])
+
   async function fetchData() {
     const { data: cats } = await supabase.from('categories').select('*')
     const { data: foodData } = await supabase
-      .from('foods').select('*, categories(name)')
-      .eq('is_available', true)
+      .from('foods').select('*, categories(name)').eq('is_available', true)
     setCategories(cats || [])
     setFoods(foodData || [])
     setLoading(false)
   }
 
-  const toggleWishlist = (id) => {
-    setWishlist(prev => prev.includes(id) ? prev.filter(w => w !== id) : [...prev, id])
+  async function fetchWishlist() {
+    if (!user) return
+    const { data } = await supabase
+      .from('wishlists').select('id, food_id').eq('user_id', user.id)
+    if (data) {
+      const ids = new Set(data.map(w => w.food_id))
+      const map = {}
+      data.forEach(w => { map[w.food_id] = w.id })
+      setWishlistIds(ids)
+      setWishlistMap(map)
+    }
+  }
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type })
+    setTimeout(() => setToast({ show: false, message: '', type: '' }), 2500)
+  }
+
+  const handleAddToCart = (e, food) => {
+    e.preventDefault()
+    if (!user) {
+      setLoginPopupMsg('Kamu perlu login terlebih dahulu untuk menambahkan menu ke keranjang belanja.')
+      setShowLoginPopup(true)
+      return
+    }
+    addItem({ ...food, qty: food.min_order || 1 })
+    showToast(`${food.name} ditambahkan ke keranjang!`, 'success')
+  }
+
+  const handleToggleWishlist = async (e, food) => {
+    e.preventDefault()
+    if (!user) {
+      setLoginPopupMsg('Kamu perlu login terlebih dahulu untuk menyimpan menu ke wishlist.')
+      setShowLoginPopup(true)
+      return
+    }
+
+    const isWishlisted = wishlistIds.has(food.id)
+
+    if (isWishlisted) {
+      const wishlistId = wishlistMap[food.id]
+      await supabase.from('wishlists').delete().eq('id', wishlistId)
+      setWishlistIds(prev => {
+        const next = new Set(prev)
+        next.delete(food.id)
+        return next
+      })
+      setWishlistMap(prev => {
+        const next = { ...prev }
+        delete next[food.id]
+        return next
+      })
+      showToast(`${food.name} dihapus dari wishlist`, 'remove')
+    } else {
+      const { data } = await supabase.from('wishlists')
+        .insert({ user_id: user.id, food_id: food.id }).select().single()
+      if (data) {
+        setWishlistIds(prev => new Set([...prev, food.id]))
+        setWishlistMap(prev => ({ ...prev, [food.id]: data.id }))
+        showToast(`${food.name} disimpan ke wishlist!`, 'wishlist')
+      }
+    }
   }
 
   const filtered = foods.filter(f => {
@@ -63,8 +200,40 @@ export default function Menu() {
 
   const categoryTabs = [{ name: 'Semua' }, ...categories]
 
+  const getCategoryEmoji = (name) => {
+    if (name === 'Semua') return '🍽️'
+    if (name?.includes('Catering')) return '🍱'
+    if (name?.includes('Ala Carte')) return '🍳'
+    if (name?.includes('Minuman')) return '🥤'
+    if (name?.includes('Snack')) return '🍪'
+    return '🍴'
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
+
+      {/* Popup Login */}
+      <LoginPopup
+        show={showLoginPopup}
+        onClose={() => setShowLoginPopup(false)}
+        message={loginPopupMsg}
+        navigate={navigate}
+      />
+
+      {/* Toast Notifikasi */}
+      <Toast show={toast.show} message={toast.message} type={toast.type} />
+
+      {/* Banner tidak login */}
+      {!user && (
+        <div className="bg-orange-500 text-white py-2.5 px-4 text-center text-sm">
+          <span>Kamu belum login. </span>
+          <button onClick={() => navigate('/login')} className="font-bold underline hover:no-underline">
+            Login sekarang
+          </button>
+          <span> untuk memesan dan menyimpan wishlist!</span>
+        </div>
+      )}
+
       {/* Breadcrumb */}
       <div className="bg-white border-b border-gray-100 px-8 py-3">
         <p className="text-sm text-gray-400">
@@ -170,7 +339,6 @@ export default function Menu() {
               <h1 className="text-2xl font-black text-gray-900">Semua Menu</h1>
               <p className="text-gray-400 text-sm mt-1">Temukan berbagai pilihan makanan lezat untuk setiap kebutuhanmu.</p>
             </div>
-            {/* Gratis Ongkir Banner */}
             <div className="bg-green-50 border border-green-100 rounded-2xl px-4 py-3 flex items-center gap-3">
               <span className="text-2xl">🚚</span>
               <div>
@@ -196,24 +364,19 @@ export default function Menu() {
             {categoryTabs.map(cat => (
               <button key={cat.name}
                 onClick={() => setActiveCategory(cat.name)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition border ${activeCategory === cat.name
-                  ? 'bg-orange-500 text-white border-orange-500'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'}`}>
-                {cat.name === 'Semua' && '🍽️'}
-                {cat.name === 'Paket Catering' && '🍱'}
-                {cat.name === 'Ala Carte' && '🍳'}
-                {cat.name === 'Minuman' && '🥤'}
-                {cat.name === 'Snack / Cemilan' && '🍪'}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition border ${
+                  activeCategory === cat.name
+                    ? 'bg-orange-500 text-white border-orange-500'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
+                }`}>
+                {getCategoryEmoji(cat.name)}
                 {cat.name}
               </button>
             ))}
 
-            {/* Sort */}
             <div className="ml-auto flex items-center gap-2">
               <span className="text-sm text-gray-400">Urutkan</span>
-              <select
-                value={sortBy}
-                onChange={e => setSortBy(e.target.value)}
+              <select value={sortBy} onChange={e => setSortBy(e.target.value)}
                 className="border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none bg-white">
                 <option value="popular">Terpopuler</option>
                 <option value="rating">Rating Tertinggi</option>
@@ -225,7 +388,7 @@ export default function Menu() {
 
           {/* Count */}
           <p className="text-sm text-gray-400 mb-4">
-            Menampilkan 1 - {filtered.length} dari {filtered.length} menu
+            Menampilkan {filtered.length} dari {foods.length} menu
           </p>
 
           {/* Grid */}
@@ -243,55 +406,92 @@ export default function Menu() {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {filtered.map(food => (
-                <div key={food.id} className="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-all hover:-translate-y-1 group">
-                  <Link to={`/menu/${food.id}`}>
-                    <div className="relative h-44 overflow-hidden bg-orange-50">
-                      {food.image ? (
-                        <img src={food.image} alt={food.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-5xl">🍽️</div>
-                      )}
-                      {/* Badge kategori */}
-                      <span className="absolute top-2 left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded-full font-medium">
-                        {food.categories?.name}
-                      </span>
-                      {/* Wishlist */}
-                      <button
-                        onClick={e => { e.preventDefault(); toggleWishlist(food.id) }}
-                        className="absolute top-2 right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm hover:scale-110 transition">
-                        <HeartIcon className={`w-4 h-4 ${wishlist.includes(food.id) ? 'text-red-500 fill-red-500' : 'text-gray-400'}`} />
-                      </button>
-                    </div>
-                  </Link>
-                  <div className="p-3">
+              {filtered.map(food => {
+                const isWishlisted = wishlistIds.has(food.id)
+                return (
+                  <div key={food.id}
+                    className="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-all hover:-translate-y-1 group">
                     <Link to={`/menu/${food.id}`}>
-                      <h3 className="font-semibold text-gray-800 text-sm leading-tight mb-1 hover:text-orange-500 transition">
-                        {food.name}
-                      </h3>
-                      <p className="text-gray-400 text-xs mb-2 line-clamp-1">{food.description}</p>
-                    </Link>
-                    <p className="text-orange-500 font-bold text-sm mb-1">
-                      Rp {food.price?.toLocaleString('id-ID')}
-                      <span className="text-gray-400 font-normal text-xs">/{food.unit || 'porsi'}</span>
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1">
-                        <StarSolid className="w-3.5 h-3.5 text-orange-400" />
-                        <span className="text-xs text-gray-500">{food.rating || '4.5'}</span>
-                        <span className="text-xs text-gray-300">•</span>
-                        <span className="text-xs text-gray-400">{food.sold_count || 0}+ terjual</span>
+                      <div className="relative h-44 overflow-hidden bg-orange-50">
+                        {food.image ? (
+                          <img src={food.image} alt={food.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-5xl">🍽️</div>
+                        )}
+
+                        {/* Badge kategori */}
+                        <span className={`absolute top-2 left-2 text-white text-xs px-2 py-1 rounded-full font-medium ${
+                          food.categories?.name?.includes('Catering') ? 'bg-purple-500'
+                          : food.categories?.name?.includes('Ala Carte') ? 'bg-blue-500'
+                          : food.categories?.name?.includes('Minuman') ? 'bg-cyan-500'
+                          : 'bg-orange-500'
+                        }`}>
+                          {food.categories?.name}
+                        </span>
+
+                        {/* Tombol Wishlist */}
+                        <button
+                          onClick={e => handleToggleWishlist(e, food)}
+                          className="absolute top-2 right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm hover:scale-110 transition">
+                          {isWishlisted ? (
+                            <HeartSolid className="w-4 h-4 text-red-500" />
+                          ) : (
+                            <HeartIcon className="w-4 h-4 text-gray-400" />
+                          )}
+                        </button>
+
+                        {/* Overlay min order untuk catering */}
+                        {food.min_order > 1 && (
+                          <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+                            Min. {food.min_order} {food.unit}
+                          </div>
+                        )}
                       </div>
-                      <button
-                        onClick={() => addItem(food)}
-                        className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center hover:bg-orange-600 transition shadow-sm shadow-orange-200">
-                        <PlusIcon className="w-4 h-4 text-white" />
-                      </button>
+                    </Link>
+
+                    <div className="p-3">
+                      <Link to={`/menu/${food.id}`}>
+                        <h3 className="font-semibold text-gray-800 text-sm leading-tight mb-1 hover:text-orange-500 transition">
+                          {food.name}
+                        </h3>
+                        <p className="text-gray-400 text-xs mb-2 line-clamp-1">{food.description}</p>
+                      </Link>
+                      <p className="text-orange-500 font-bold text-sm mb-1">
+                        Rp {food.price?.toLocaleString('id-ID')}
+                        <span className="text-gray-400 font-normal text-xs">/{food.unit || 'porsi'}</span>
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1">
+                          <StarSolid className="w-3.5 h-3.5 text-orange-400" />
+                          <span className="text-xs text-gray-500">{food.rating || '4.5'}</span>
+                          <span className="text-xs text-gray-300">•</span>
+                          <span className="text-xs text-gray-400">{food.sold_count || 0}+ terjual</span>
+                        </div>
+
+                        {/* Tombol tambah ke keranjang */}
+                        <button
+                          onClick={e => handleAddToCart(e, food)}
+                          className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center hover:bg-orange-600 transition shadow-sm shadow-orange-200">
+                          <PlusIcon className="w-4 h-4 text-white" />
+                        </button>
+                      </div>
+
+                      {/* Hint untuk yang belum login */}
+                      {!user && (
+                        <button
+                          onClick={() => {
+                            setLoginPopupMsg('Login untuk memesan menu dan menyimpan ke wishlist favoritmu.')
+                            setShowLoginPopup(true)
+                          }}
+                          className="w-full mt-2 text-xs text-gray-400 hover:text-orange-500 transition text-center py-1 border border-dashed border-gray-200 rounded-lg hover:border-orange-300">
+                          🔒 Login untuk memesan
+                        </button>
+                      )}
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
