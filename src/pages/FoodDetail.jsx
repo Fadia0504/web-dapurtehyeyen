@@ -7,11 +7,21 @@ import { formatDateTime } from '../lib/timeUtils'
 import {
   MinusIcon, PlusIcon, ChevronRightIcon, CheckIcon, XMarkIcon
 } from '@heroicons/react/24/outline'
-import {
-  StarIcon as StarSolid,
-  HeartIcon as HeartSolid
-} from '@heroicons/react/24/solid'
+import { StarIcon as StarSolid, HeartIcon as HeartSolid } from '@heroicons/react/24/solid'
 import { StarIcon, HeartIcon } from '@heroicons/react/24/outline'
+
+function RatingStars({ rating, size = 'sm' }) {
+  const w = size === 'sm' ? 'w-4 h-4' : size === 'lg' ? 'w-6 h-6' : 'w-5 h-5'
+  return (
+    <div className="flex gap-0.5">
+      {[1, 2, 3, 4, 5].map(s => (
+        s <= Math.round(rating)
+          ? <StarSolid key={s} className={`${w} text-orange-400`} />
+          : <StarIcon key={s} className={`${w} text-gray-200`} />
+      ))}
+    </div>
+  )
+}
 
 export default function FoodDetail() {
   const { id } = useParams()
@@ -31,20 +41,12 @@ export default function FoodDetail() {
   const [wishlistLoading, setWishlistLoading] = useState(false)
   const [addedToCart, setAddedToCart] = useState(false)
 
-  // Review states
   const [reviews, setReviews] = useState([])
   const [avgRating, setAvgRating] = useState(0)
   const [reviewCount, setReviewCount] = useState(0)
   const [soldCount, setSoldCount] = useState(0)
-  const [canReview, setCanReview] = useState(false)
-  const [reviewableOrders, setReviewableOrders] = useState([])
-  const [showReviewForm, setShowReviewForm] = useState(false)
-  const [reviewRating, setReviewRating] = useState(0)
-  const [reviewHover, setReviewHover] = useState(0)
-  const [reviewComment, setReviewComment] = useState('')
-  const [reviewOrderId, setReviewOrderId] = useState('')
-  const [submittingReview, setSubmittingReview] = useState(false)
-  const [userExistingReview, setUserExistingReview] = useState(null)
+  const [userHasReviewed, setUserHasReviewed] = useState(false)
+  const [loadingReviews, setLoadingReviews] = useState(true)
 
   useEffect(() => {
     fetchFood()
@@ -54,11 +56,10 @@ export default function FoodDetail() {
   useEffect(() => {
     if (user && id) {
       checkWishlist()
-      checkCanReview()
+      checkUserReviewed()
     }
   }, [user, id])
 
-  // Realtime reviews
   useEffect(() => {
     const channel = supabase
       .channel(`food-reviews-${id}`)
@@ -67,10 +68,16 @@ export default function FoodDetail() {
         filter: `food_id=eq.${id}`
       }, () => {
         fetchReviews()
+        if (user) checkUserReviewed()
+      })
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'order_items'
+      }, () => {
+        fetchSoldCount()
       })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [id])
+  }, [id, user])
 
   async function fetchFood() {
     setLoading(true)
@@ -103,25 +110,64 @@ export default function FoodDetail() {
   }
 
   async function fetchReviews() {
-    // Fetch reviews dengan info user
-    const { data: reviewData } = await supabase
-      .from('food_reviews')
-      .select('*, profiles(full_name, avatar_url)')
-      .eq('food_id', id)
-      .order('created_at', { ascending: false })
-    setReviews(reviewData || [])
+    setLoadingReviews(true)
+    try {
+      // Fetch reviews tanpa join dulu
+      const { data: reviewData, error } = await supabase
+        .from('food_reviews')
+        .select('id, rating, comment, created_at, user_id')
+        .eq('food_id', id)
+        .order('created_at', { ascending: false })
 
-    // Hitung avg rating & review count
-    if (reviewData && reviewData.length > 0) {
-      const avg = reviewData.reduce((s, r) => s + r.rating, 0) / reviewData.length
+      if (error) {
+        console.error('Error fetching reviews:', error)
+        setReviews([])
+        setReviewCount(0)
+        setAvgRating(0)
+        setLoadingReviews(false)
+        await fetchSoldCount()
+        return
+      }
+
+      if (!reviewData || reviewData.length === 0) {
+        setReviews([])
+        setAvgRating(0)
+        setReviewCount(0)
+        setLoadingReviews(false)
+        await fetchSoldCount()
+        return
+      }
+
+      // Fetch profiles terpisah
+      const userIds = [...new Set(reviewData.map(r => r.user_id))]
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', userIds)
+
+      const profileMap = {}
+      profileData?.forEach(p => { profileMap[p.id] = p })
+
+      // Gabungkan
+      const merged = reviewData.map(r => ({
+        ...r,
+        profiles: profileMap[r.user_id] || null
+      }))
+
+      setReviews(merged)
+      const avg = merged.reduce((s, r) => s + r.rating, 0) / merged.length
       setAvgRating(Math.round(avg * 10) / 10)
-      setReviewCount(reviewData.length)
-    } else {
-      setAvgRating(0)
-      setReviewCount(0)
+      setReviewCount(merged.length)
+    } catch (err) {
+      console.error('fetchReviews error:', err)
+      setReviews([])
+    } finally {
+      setLoadingReviews(false)
     }
+    await fetchSoldCount()
+  }
 
-    // Hitung sold count dari order_items yang sudah done
+  async function fetchSoldCount() {
     const { data: soldData } = await supabase
       .from('order_items')
       .select('quantity, orders!inner(status)')
@@ -131,42 +177,21 @@ export default function FoodDetail() {
     setSoldCount(total)
   }
 
-  async function checkCanReview() {
+  async function checkUserReviewed() {
     if (!user) return
-
-    // Cek apakah user sudah pernah memesan menu ini dan statusnya done
-    const { data: orderData } = await supabase
-      .from('order_items')
-      .select('quantity, orders!inner(id, status, created_at)')
+    const { data } = await supabase
+      .from('food_reviews')
+      .select('id')
       .eq('food_id', id)
-      .eq('orders.user_id', user.id)
-      .eq('orders.status', 'done')
-
-    if (orderData && orderData.length > 0) {
-      // Cek review yang sudah ada per order
-      const { data: existingReviews } = await supabase
-        .from('food_reviews')
-        .select('id, order_id, rating, comment')
-        .eq('food_id', id)
-        .eq('user_id', user.id)
-
-      const reviewedOrderIds = new Set(existingReviews?.map(r => r.order_id) || [])
-
-      // Order yang belum direview
-      const unreviewed = orderData.filter(item => !reviewedOrderIds.has(item.orders?.id))
-      setReviewableOrders(unreviewed.map(item => item.orders))
-      setCanReview(unreviewed.length > 0)
-
-      // Review user yang sudah ada
-      if (existingReviews && existingReviews.length > 0) {
-        setUserExistingReview(existingReviews[0])
-      }
-    }
+      .eq('user_id', user.id)
+      .maybeSingle()
+    setUserHasReviewed(!!data)
   }
 
   async function checkWishlist() {
     const { data } = await supabase.from('wishlists')
-      .select('id').eq('user_id', user.id).eq('food_id', id).single()
+      .select('id').eq('user_id', user.id).eq('food_id', id)
+      .maybeSingle()
     if (data) { setWishlist(true); setWishlistId(data.id) }
     else { setWishlist(false); setWishlistId(null) }
   }
@@ -186,35 +211,6 @@ export default function FoodDetail() {
       }
     } finally {
       setWishlistLoading(false)
-    }
-  }
-
-  const handleSubmitReview = async () => {
-    if (!reviewRating) { alert('Harap pilih rating bintang!'); return }
-    if (!reviewComment.trim()) { alert('Harap tulis ulasan kamu!'); return }
-    if (!reviewOrderId) { alert('Harap pilih pesanan yang ingin diulas!'); return }
-
-    setSubmittingReview(true)
-    try {
-      const { error } = await supabase.from('food_reviews').insert({
-        user_id: user.id,
-        food_id: id,
-        order_id: reviewOrderId,
-        rating: reviewRating,
-        comment: reviewComment.trim(),
-      })
-      if (error) throw error
-
-      setShowReviewForm(false)
-      setReviewRating(0)
-      setReviewComment('')
-      setReviewOrderId('')
-      await fetchReviews()
-      await checkCanReview()
-    } catch (err) {
-      alert('Gagal mengirim ulasan: ' + err.message)
-    } finally {
-      setSubmittingReview(false)
     }
   }
 
@@ -256,32 +252,6 @@ export default function FoodDetail() {
     navigate('/checkout')
   }
 
-  // Render bintang
-  const RatingStars = ({ rating, size = 'sm', interactive = false, hover = 0, onRate, onHover }) => {
-    const w = size === 'sm' ? 'w-4 h-4' : size === 'lg' ? 'w-8 h-8' : 'w-5 h-5'
-    return (
-      <div className="flex gap-0.5">
-        {[1, 2, 3, 4, 5].map(s => (
-          <button
-            key={s}
-            type="button"
-            disabled={!interactive}
-            onClick={() => interactive && onRate && onRate(s)}
-            onMouseEnter={() => interactive && onHover && onHover(s)}
-            onMouseLeave={() => interactive && onHover && onHover(0)}
-            className={interactive ? 'transition-transform hover:scale-110' : 'cursor-default'}
-          >
-            {s <= (interactive ? (hover || rating) : rating) ? (
-              <StarSolid className={`${w} text-orange-400`} />
-            ) : (
-              <StarIcon className={`${w} text-gray-200`} />
-            )}
-          </button>
-        ))}
-      </div>
-    )
-  }
-
   if (loading) return (
     <div className="flex justify-center items-center min-h-[60vh]">
       <div className="text-center">
@@ -299,8 +269,6 @@ export default function FoodDetail() {
 
   const singleOptions = options.filter(o => o.group_type === 'single')
   const multiOptions = options.filter(o => o.group_type === 'multiple')
-
-  const ratingLabel = ['', 'Sangat Buruk', 'Buruk', 'Cukup', 'Bagus', 'Sangat Bagus!']
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -326,16 +294,10 @@ export default function FoodDetail() {
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-8xl bg-orange-50">🍽️</div>
               )}
-
               <button onClick={toggleWishlist} disabled={wishlistLoading}
                 className={`absolute top-4 right-4 w-10 h-10 bg-white rounded-full shadow-md flex items-center justify-center transition ${wishlistLoading ? 'opacity-50' : 'hover:scale-110'}`}>
-                {wishlist ? (
-                  <HeartSolid className="w-5 h-5 text-red-500" />
-                ) : (
-                  <HeartIcon className="w-5 h-5 text-gray-400" />
-                )}
+                {wishlist ? <HeartSolid className="w-5 h-5 text-red-500" /> : <HeartIcon className="w-5 h-5 text-gray-400" />}
               </button>
-
               {wishlist && (
                 <div className="absolute top-4 left-4 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-medium">
                   ❤️ Disimpan
@@ -389,9 +351,9 @@ export default function FoodDetail() {
 
             {/* Rating realtime */}
             <div className="flex items-center gap-3 mb-3">
-              <RatingStars rating={Math.round(avgRating)} />
-              <span className="text-sm text-gray-500 font-medium">
-                {avgRating > 0 ? avgRating : 'Belum ada rating'}
+              <RatingStars rating={avgRating} />
+              <span className="text-sm text-gray-600 font-medium">
+                {avgRating > 0 ? avgRating : '-'}
               </span>
               <span className="text-gray-300">•</span>
               <span className="text-sm text-gray-500">{reviewCount} ulasan</span>
@@ -531,7 +493,9 @@ export default function FoodDetail() {
             <div className="flex gap-3">
               <button onClick={handleAddToCart}
                 className={`flex-1 border-2 py-4 rounded-2xl font-bold transition flex items-center justify-center gap-2 ${
-                  addedToCart ? 'border-green-500 bg-green-50 text-green-600' : 'border-orange-500 text-orange-500 hover:bg-orange-50'
+                  addedToCart
+                    ? 'border-green-500 bg-green-50 text-green-600'
+                    : 'border-orange-500 text-orange-500 hover:bg-orange-50'
                 }`}>
                 {addedToCart ? <><CheckIcon className="w-5 h-5" /> Ditambahkan!</> : '🛒 Tambah ke Keranjang'}
               </button>
@@ -555,19 +519,26 @@ export default function FoodDetail() {
               </p>
             </div>
 
-            {/* Tombol beri ulasan */}
-            {canReview && !showReviewForm && (
-              <button onClick={() => setShowReviewForm(true)}
-                className="flex items-center gap-2 bg-orange-500 text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-orange-600 transition">
-                ⭐ Beri Ulasan
-              </button>
-            )}
-            {userExistingReview && !canReview && (
-              <div className="flex items-center gap-2 bg-green-50 text-green-600 px-4 py-2 rounded-xl text-sm font-medium">
-                <CheckIcon className="w-4 h-4" />
-                Sudah diulas
-              </div>
-            )}
+            <div className="flex items-center gap-3">
+              {user && userHasReviewed && (
+                <div className="flex items-center gap-2 bg-green-50 text-green-600 px-4 py-2 rounded-xl text-sm font-medium">
+                  <CheckIcon className="w-4 h-4" />
+                  Kamu sudah mengulas menu ini
+                </div>
+              )}
+              {user && !userHasReviewed && (
+                <Link to="/dashboard"
+                  className="flex items-center gap-2 bg-orange-50 text-orange-500 border border-orange-200 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-orange-100 transition">
+                  ⭐ Beri Ulasan di Riwayat Pesanan
+                </Link>
+              )}
+              {!user && (
+                <Link to="/login"
+                  className="flex items-center gap-2 bg-gray-50 text-gray-500 border border-gray-200 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-100 transition">
+                  Login untuk mengulas
+                </Link>
+              )}
+            </div>
           </div>
 
           {/* Summary Rating */}
@@ -604,106 +575,31 @@ export default function FoodDetail() {
             </div>
           )}
 
-          {/* Form Ulasan */}
-          {showReviewForm && (
-            <div className="bg-white rounded-2xl shadow-sm p-6 mb-6 border-2 border-orange-200">
-              <div className="flex justify-between items-center mb-5">
-                <h3 className="font-bold text-gray-900">Tulis Ulasanmu</h3>
-                <button onClick={() => setShowReviewForm(false)}
-                  className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition">
-                  <XMarkIcon className="w-5 h-5 text-gray-400" />
-                </button>
-              </div>
-
-              {/* Pilih pesanan */}
-              {reviewableOrders.length > 1 && (
-                <div className="mb-4">
-                  <label className="text-sm font-medium text-gray-700 block mb-2">Pilih Pesanan</label>
-                  <select value={reviewOrderId} onChange={e => setReviewOrderId(e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-400 transition">
-                    <option value="">Pilih pesanan yang ingin diulas</option>
-                    {reviewableOrders.map(order => (
-                      <option key={order.id} value={order.id}>
-                        #{order.id.slice(0, 8).toUpperCase()} — {new Date(order.created_at).toLocaleDateString('id-ID')}
-                      </option>
-                    ))}
-                  </select>
+          {/* Info beri ulasan */}
+          {user && !userHasReviewed && (
+            <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4 mb-6 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">⭐</span>
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Pernah memesan menu ini?</p>
+                  <p className="text-xs text-gray-500">Beri ulasan dari halaman Riwayat Pesanan di dashboard kamu.</p>
                 </div>
-              )}
-              {reviewableOrders.length === 1 && !reviewOrderId && (
-                <div className="mb-4">
-                  {setReviewOrderId(reviewableOrders[0].id)}
-                </div>
-              )}
-
-              {/* Rating bintang interaktif */}
-              <div className="mb-5">
-                <label className="text-sm font-medium text-gray-700 block mb-3">
-                  Rating *
-                  {reviewRating > 0 && (
-                    <span className="ml-2 text-orange-500 font-normal">{ratingLabel[reviewRating]}</span>
-                  )}
-                </label>
-                <RatingStars
-                  rating={reviewRating}
-                  size="lg"
-                  interactive
-                  hover={reviewHover}
-                  onRate={setReviewRating}
-                  onHover={setReviewHover}
-                />
               </div>
-
-              {/* Komentar */}
-              <div className="mb-5">
-                <label className="text-sm font-medium text-gray-700 block mb-2">Ulasan *</label>
-                <textarea
-                  value={reviewComment}
-                  onChange={e => setReviewComment(e.target.value.slice(0, 500))}
-                  placeholder="Bagikan pengalamanmu tentang menu ini..."
-                  rows={4}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-400 transition resize-none"
-                />
-                <p className="text-right text-xs text-gray-400 mt-1">{reviewComment.length}/500</p>
-              </div>
-
-              <div className="flex gap-3">
-                <button onClick={() => setShowReviewForm(false)}
-                  className="flex-1 border border-gray-200 text-gray-600 py-3 rounded-xl font-semibold text-sm hover:bg-gray-50 transition">
-                  Batal
-                </button>
-                <button onClick={handleSubmitReview} disabled={submittingReview || !reviewRating || !reviewComment.trim()}
-                  className="flex-1 bg-orange-500 text-white py-3 rounded-xl font-semibold text-sm hover:bg-orange-600 transition disabled:opacity-40 flex items-center justify-center gap-2">
-                  {submittingReview ? (
-                    <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Mengirim...</>
-                  ) : (
-                    <><CheckIcon className="w-4 h-4" /> Kirim Ulasan</>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Hint untuk yang belum pernah beli */}
-          {user && !canReview && !userExistingReview && (
-            <div className="bg-gray-50 rounded-2xl p-4 mb-6 flex items-center gap-3 text-sm text-gray-500">
-              <span className="text-2xl">💡</span>
-              <span>Kamu bisa memberi ulasan setelah pesananmu selesai diterima.</span>
-            </div>
-          )}
-
-          {!user && (
-            <div className="bg-orange-50 rounded-2xl p-4 mb-6 flex items-center gap-3">
-              <span className="text-2xl">⭐</span>
-              <p className="text-sm text-gray-600">
-                <Link to="/login" className="text-orange-500 font-semibold hover:underline">Login</Link>
-                {' '}dan pesan menu ini untuk bisa memberikan ulasan.
-              </p>
+              <Link to="/dashboard"
+                className="bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-orange-600 transition flex-shrink-0">
+                Ke Riwayat Pesanan
+              </Link>
             </div>
           )}
 
           {/* Daftar Ulasan */}
-          {reviews.length === 0 ? (
+          {loadingReviews ? (
+            <div className="space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="bg-white rounded-2xl p-5 h-28 animate-pulse" />
+              ))}
+            </div>
+          ) : reviews.length === 0 ? (
             <div className="bg-white rounded-2xl shadow-sm p-10 text-center">
               <p className="text-4xl mb-3">⭐</p>
               <p className="font-semibold text-gray-700 mb-1">Belum ada ulasan</p>
@@ -717,20 +613,22 @@ export default function FoodDetail() {
                 return (
                   <div key={review.id} className="bg-white rounded-2xl shadow-sm p-5">
                     <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-full overflow-hidden bg-orange-100 flex-shrink-0 flex items-center justify-center">
+                      <div className="w-11 h-11 rounded-full overflow-hidden bg-orange-100 flex-shrink-0 flex items-center justify-center">
                         {review.profiles?.avatar_url ? (
                           <img src={review.profiles.avatar_url} alt={uname} className="w-full h-full object-cover" />
                         ) : (
-                          <span className="font-bold text-orange-500 text-sm">{uname[0].toUpperCase()}</span>
+                          <span className="font-bold text-orange-500">{uname[0]?.toUpperCase()}</span>
                         )}
                       </div>
                       <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <p className="font-semibold text-gray-800 text-sm">{uname}</p>
-                          <p className="text-xs text-gray-400">{date}</p>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div>
+                            <p className="font-semibold text-gray-800 text-sm">{uname}</p>
+                            <p className="text-xs text-gray-400">{date}</p>
+                          </div>
+                          <RatingStars rating={review.rating} size="sm" />
                         </div>
-                        <RatingStars rating={review.rating} size="sm" />
-                        <p className="text-sm text-gray-600 mt-2 leading-relaxed">{review.comment}</p>
+                        <p className="text-sm text-gray-600 leading-relaxed">{review.comment}</p>
                       </div>
                     </div>
                   </div>

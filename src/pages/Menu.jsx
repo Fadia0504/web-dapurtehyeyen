@@ -17,7 +17,6 @@ const priceRanges = [
   { label: 'Di atas Rp 30.000', min: 30000, max: Infinity },
 ]
 
-// Komponen Popup Login
 function LoginPopup({ show, onClose, message, navigate }) {
   if (!show) return null
   return (
@@ -28,31 +27,25 @@ function LoginPopup({ show, onClose, message, navigate }) {
           className="absolute top-4 right-4 w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition">
           <XMarkIcon className="w-5 h-5 text-gray-400" />
         </button>
-
         <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <LockClosedIcon className="w-8 h-8 text-orange-500" />
         </div>
-
         <h2 className="text-lg font-black text-gray-900 mb-2">Login Diperlukan</h2>
         <p className="text-sm text-gray-500 mb-6 leading-relaxed">{message}</p>
-
         <div className="flex gap-3">
           <button onClick={onClose}
             className="flex-1 border border-gray-200 text-gray-600 py-3 rounded-2xl font-semibold text-sm hover:bg-gray-50 transition">
             Nanti Saja
           </button>
-          <button
-            onClick={() => { onClose(); navigate('/login') }}
+          <button onClick={() => { onClose(); navigate('/login') }}
             className="flex-1 bg-orange-500 text-white py-3 rounded-2xl font-semibold text-sm hover:bg-orange-600 transition flex items-center justify-center gap-2">
             <UserIcon className="w-4 h-4" />
             Login Sekarang
           </button>
         </div>
-
         <p className="text-xs text-gray-400 mt-4">
           Belum punya akun?{' '}
-          <button
-            onClick={() => { onClose(); navigate('/register') }}
+          <button onClick={() => { onClose(); navigate('/register') }}
             className="text-orange-500 font-medium hover:underline">
             Daftar gratis
           </button>
@@ -62,18 +55,16 @@ function LoginPopup({ show, onClose, message, navigate }) {
   )
 }
 
-// Komponen Toast Notifikasi
 function Toast({ show, message, type }) {
   if (!show) return null
   return (
     <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-lg flex items-center gap-3 transition-all ${
       type === 'success' ? 'bg-green-500 text-white'
       : type === 'wishlist' ? 'bg-red-500 text-white'
-      : type === 'remove' ? 'bg-gray-700 text-white'
-      : 'bg-gray-800 text-white'
+      : 'bg-gray-700 text-white'
     }`}>
       <span className="text-lg">
-        {type === 'success' ? '🛒' : type === 'wishlist' ? '❤️' : type === 'remove' ? '🗑️' : 'ℹ️'}
+        {type === 'success' ? '🛒' : type === 'wishlist' ? '❤️' : '🗑️'}
       </span>
       <span className="text-sm font-medium">{message}</span>
     </div>
@@ -87,6 +78,7 @@ export default function Menu() {
 
   const [foods, setFoods] = useState([])
   const [categories, setCategories] = useState([])
+  const [foodStats, setFoodStats] = useState({}) // { foodId: { avgRating, reviewCount, soldCount } }
   const [activeCategory, setActiveCategory] = useState('Semua')
   const [activeCategoryFilter, setActiveCategoryFilter] = useState([])
   const [priceRange, setPriceRange] = useState(0)
@@ -94,9 +86,7 @@ export default function Menu() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [wishlistIds, setWishlistIds] = useState(new Set())
-  const [wishlistMap, setWishlistMap] = useState({}) // foodId -> wishlistId
-
-  // Popup & Toast state
+  const [wishlistMap, setWishlistMap] = useState({})
   const [showLoginPopup, setShowLoginPopup] = useState(false)
   const [loginPopupMsg, setLoginPopupMsg] = useState('')
   const [toast, setToast] = useState({ show: false, message: '', type: '' })
@@ -110,13 +100,74 @@ export default function Menu() {
     else { setWishlistIds(new Set()); setWishlistMap({}) }
   }, [user])
 
+  // Realtime stats update
+  useEffect(() => {
+    const channel = supabase
+      .channel('menu-stats-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'food_reviews' }, () => {
+        fetchFoodStats()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        fetchFoodStats()
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [])
+
   async function fetchData() {
-    const { data: cats } = await supabase.from('categories').select('*')
-    const { data: foodData } = await supabase
-      .from('foods').select('*, categories(name)').eq('is_available', true)
+    const [{ data: cats }, { data: foodData }] = await Promise.all([
+      supabase.from('categories').select('*'),
+      supabase.from('foods').select('*, categories(name)').eq('is_available', true),
+    ])
     setCategories(cats || [])
     setFoods(foodData || [])
     setLoading(false)
+    await fetchFoodStats()
+  }
+
+  async function fetchFoodStats() {
+    // Fetch avg rating & review count per food
+    const { data: reviewData } = await supabase
+      .from('food_reviews')
+      .select('food_id, rating')
+
+    // Fetch sold count per food (orders done)
+    const { data: soldData } = await supabase
+      .from('order_items')
+      .select('food_id, quantity, orders!inner(status)')
+      .eq('orders.status', 'done')
+
+    const stats = {}
+
+    // Hitung rating
+    if (reviewData) {
+      reviewData.forEach(r => {
+        if (!stats[r.food_id]) stats[r.food_id] = { ratings: [], soldCount: 0 }
+        stats[r.food_id].ratings.push(r.rating)
+      })
+    }
+
+    // Hitung sold count
+    if (soldData) {
+      soldData.forEach(item => {
+        if (!stats[item.food_id]) stats[item.food_id] = { ratings: [], soldCount: 0 }
+        stats[item.food_id].soldCount += item.quantity || 0
+      })
+    }
+
+    // Compute avg
+    const computed = {}
+    Object.entries(stats).forEach(([foodId, data]) => {
+      const ratings = data.ratings || []
+      computed[foodId] = {
+        avgRating: ratings.length > 0
+          ? Math.round((ratings.reduce((s, r) => s + r, 0) / ratings.length) * 10) / 10
+          : 0,
+        reviewCount: ratings.length,
+        soldCount: data.soldCount || 0,
+      }
+    })
+    setFoodStats(computed)
   }
 
   async function fetchWishlist() {
@@ -155,22 +206,11 @@ export default function Menu() {
       setShowLoginPopup(true)
       return
     }
-
     const isWishlisted = wishlistIds.has(food.id)
-
     if (isWishlisted) {
-      const wishlistId = wishlistMap[food.id]
-      await supabase.from('wishlists').delete().eq('id', wishlistId)
-      setWishlistIds(prev => {
-        const next = new Set(prev)
-        next.delete(food.id)
-        return next
-      })
-      setWishlistMap(prev => {
-        const next = { ...prev }
-        delete next[food.id]
-        return next
-      })
+      await supabase.from('wishlists').delete().eq('id', wishlistMap[food.id])
+      setWishlistIds(prev => { const next = new Set(prev); next.delete(food.id); return next })
+      setWishlistMap(prev => { const next = { ...prev }; delete next[food.id]; return next })
       showToast(`${food.name} dihapus dari wishlist`, 'remove')
     } else {
       const { data } = await supabase.from('wishlists')
@@ -183,6 +223,8 @@ export default function Menu() {
     }
   }
 
+  const getStats = (foodId) => foodStats[foodId] || { avgRating: 0, reviewCount: 0, soldCount: 0 }
+
   const filtered = foods.filter(f => {
     const matchCategory = activeCategory === 'Semua' || f.categories?.name === activeCategory
     const matchFilter = activeCategoryFilter.length === 0 || activeCategoryFilter.includes(f.categories?.name)
@@ -191,10 +233,10 @@ export default function Menu() {
     const matchSearch = f.name.toLowerCase().includes(search.toLowerCase())
     return matchCategory && matchFilter && matchPrice && matchSearch
   }).sort((a, b) => {
-    if (sortBy === 'popular') return (b.sold_count || 0) - (a.sold_count || 0)
+    if (sortBy === 'popular') return (getStats(b.id).soldCount) - (getStats(a.id).soldCount)
     if (sortBy === 'price_asc') return a.price - b.price
     if (sortBy === 'price_desc') return b.price - a.price
-    if (sortBy === 'rating') return (b.rating || 0) - (a.rating || 0)
+    if (sortBy === 'rating') return (getStats(b.id).avgRating) - (getStats(a.id).avgRating)
     return 0
   })
 
@@ -211,30 +253,17 @@ export default function Menu() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-
-      {/* Popup Login */}
-      <LoginPopup
-        show={showLoginPopup}
-        onClose={() => setShowLoginPopup(false)}
-        message={loginPopupMsg}
-        navigate={navigate}
-      />
-
-      {/* Toast Notifikasi */}
+      <LoginPopup show={showLoginPopup} onClose={() => setShowLoginPopup(false)} message={loginPopupMsg} navigate={navigate} />
       <Toast show={toast.show} message={toast.message} type={toast.type} />
 
-      {/* Banner tidak login */}
       {!user && (
         <div className="bg-orange-500 text-white py-2.5 px-4 text-center text-sm">
           <span>Kamu belum login. </span>
-          <button onClick={() => navigate('/login')} className="font-bold underline hover:no-underline">
-            Login sekarang
-          </button>
+          <button onClick={() => navigate('/login')} className="font-bold underline hover:no-underline">Login sekarang</button>
           <span> untuk memesan dan menyimpan wishlist!</span>
         </div>
       )}
 
-      {/* Breadcrumb */}
       <div className="bg-white border-b border-gray-100 px-8 py-3">
         <p className="text-sm text-gray-400">
           <Link to="/" className="hover:text-orange-500">Beranda</Link>
@@ -253,14 +282,10 @@ export default function Menu() {
                 <AdjustmentsHorizontalIcon className="w-5 h-5 text-orange-500" />
                 Filter Menu
               </h3>
-              <button
-                onClick={() => { setActiveCategoryFilter([]); setPriceRange(0) }}
-                className="text-orange-500 text-xs hover:underline">
-                Reset
-              </button>
+              <button onClick={() => { setActiveCategoryFilter([]); setPriceRange(0) }}
+                className="text-orange-500 text-xs hover:underline">Reset</button>
             </div>
 
-            {/* Kategori */}
             <div className="mb-5">
               <div className="flex justify-between items-center mb-3">
                 <p className="font-semibold text-gray-700 text-sm">Kategori</p>
@@ -268,10 +293,8 @@ export default function Menu() {
               </div>
               <div className="space-y-2">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox"
-                    checked={activeCategoryFilter.length === 0}
-                    onChange={() => setActiveCategoryFilter([])}
-                    className="accent-orange-500" />
+                  <input type="checkbox" checked={activeCategoryFilter.length === 0}
+                    onChange={() => setActiveCategoryFilter([])} className="accent-orange-500" />
                   <span className="text-sm text-gray-600">Semua Kategori</span>
                 </label>
                 {categories.map(cat => {
@@ -282,9 +305,7 @@ export default function Menu() {
                         <input type="checkbox"
                           checked={activeCategoryFilter.includes(cat.name)}
                           onChange={() => setActiveCategoryFilter(prev =>
-                            prev.includes(cat.name)
-                              ? prev.filter(c => c !== cat.name)
-                              : [...prev, cat.name]
+                            prev.includes(cat.name) ? prev.filter(c => c !== cat.name) : [...prev, cat.name]
                           )}
                           className="accent-orange-500" />
                         <span className="text-sm text-gray-600">{cat.name}</span>
@@ -296,7 +317,6 @@ export default function Menu() {
               </div>
             </div>
 
-            {/* Harga */}
             <div className="mb-5">
               <div className="flex justify-between items-center mb-3">
                 <p className="font-semibold text-gray-700 text-sm">Harga</p>
@@ -313,14 +333,13 @@ export default function Menu() {
               </div>
             </div>
 
-            {/* Rating */}
             <div>
               <div className="flex justify-between items-center mb-3">
                 <p className="font-semibold text-gray-700 text-sm">Rating</p>
                 <ChevronDownIcon className="w-4 h-4 text-gray-400" />
               </div>
               <div className="space-y-2">
-                {['Semua Rating', '4★ ke atas', '3★ ke atas', '2★ ke atas', '1★ ke atas'].map((r, i) => (
+                {['Semua Rating', '4★ ke atas', '3★ ke atas'].map((r, i) => (
                   <label key={i} className="flex items-center gap-2 cursor-pointer">
                     <input type="radio" name="rating" defaultChecked={i === 0} className="accent-orange-500" />
                     <span className="text-sm text-gray-600">{r}</span>
@@ -331,9 +350,8 @@ export default function Menu() {
           </div>
         </aside>
 
-        {/* MAIN CONTENT */}
+        {/* MAIN */}
         <div className="flex-1">
-          {/* Header */}
           <div className="flex justify-between items-start mb-4">
             <div>
               <h1 className="text-2xl font-black text-gray-900">Semua Menu</h1>
@@ -348,32 +366,24 @@ export default function Menu() {
             </div>
           </div>
 
-          {/* Search */}
           <div className="relative mb-4">
             <MagnifyingGlassIcon className="w-5 h-5 text-gray-300 absolute left-4 top-1/2 -translate-y-1/2" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
+            <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Cari makanan, minuman..."
-              className="w-full bg-white border border-gray-100 rounded-2xl pl-12 pr-4 py-3 text-sm outline-none focus:border-orange-300 shadow-sm transition"
-            />
+              className="w-full bg-white border border-gray-100 rounded-2xl pl-12 pr-4 py-3 text-sm outline-none focus:border-orange-300 shadow-sm transition" />
           </div>
 
-          {/* Category Tabs */}
           <div className="flex gap-2 mb-4 flex-wrap">
             {categoryTabs.map(cat => (
-              <button key={cat.name}
-                onClick={() => setActiveCategory(cat.name)}
+              <button key={cat.name} onClick={() => setActiveCategory(cat.name)}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition border ${
                   activeCategory === cat.name
                     ? 'bg-orange-500 text-white border-orange-500'
                     : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
                 }`}>
-                {getCategoryEmoji(cat.name)}
-                {cat.name}
+                {getCategoryEmoji(cat.name)}{cat.name}
               </button>
             ))}
-
             <div className="ml-auto flex items-center gap-2">
               <span className="text-sm text-gray-400">Urutkan</span>
               <select value={sortBy} onChange={e => setSortBy(e.target.value)}
@@ -386,17 +396,11 @@ export default function Menu() {
             </div>
           </div>
 
-          {/* Count */}
-          <p className="text-sm text-gray-400 mb-4">
-            Menampilkan {filtered.length} dari {foods.length} menu
-          </p>
+          <p className="text-sm text-gray-400 mb-4">Menampilkan {filtered.length} dari {foods.length} menu</p>
 
-          {/* Grid */}
           {loading ? (
             <div className="grid grid-cols-4 gap-4">
-              {[...Array(8)].map((_, i) => (
-                <div key={i} className="bg-white rounded-2xl h-64 animate-pulse" />
-              ))}
+              {[...Array(8)].map((_, i) => <div key={i} className="bg-white rounded-2xl h-64 animate-pulse" />)}
             </div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-16 text-gray-400">
@@ -408,6 +412,7 @@ export default function Menu() {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {filtered.map(food => {
                 const isWishlisted = wishlistIds.has(food.id)
+                const stats = getStats(food.id)
                 return (
                   <div key={food.id}
                     className="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-all hover:-translate-y-1 group">
@@ -419,8 +424,6 @@ export default function Menu() {
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-5xl">🍽️</div>
                         )}
-
-                        {/* Badge kategori */}
                         <span className={`absolute top-2 left-2 text-white text-xs px-2 py-1 rounded-full font-medium ${
                           food.categories?.name?.includes('Catering') ? 'bg-purple-500'
                           : food.categories?.name?.includes('Ala Carte') ? 'bg-blue-500'
@@ -429,19 +432,13 @@ export default function Menu() {
                         }`}>
                           {food.categories?.name}
                         </span>
-
-                        {/* Tombol Wishlist */}
-                        <button
-                          onClick={e => handleToggleWishlist(e, food)}
+                        <button onClick={e => handleToggleWishlist(e, food)}
                           className="absolute top-2 right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm hover:scale-110 transition">
-                          {isWishlisted ? (
-                            <HeartSolid className="w-4 h-4 text-red-500" />
-                          ) : (
-                            <HeartIcon className="w-4 h-4 text-gray-400" />
-                          )}
+                          {isWishlisted
+                            ? <HeartSolid className="w-4 h-4 text-red-500" />
+                            : <HeartIcon className="w-4 h-4 text-gray-400" />
+                          }
                         </button>
-
-                        {/* Overlay min order untuk catering */}
                         {food.min_order > 1 && (
                           <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
                             Min. {food.min_order} {food.unit}
@@ -462,22 +459,21 @@ export default function Menu() {
                         <span className="text-gray-400 font-normal text-xs">/{food.unit || 'porsi'}</span>
                       </p>
                       <div className="flex items-center justify-between">
+                        {/* Rating & sold count REALTIME */}
                         <div className="flex items-center gap-1">
                           <StarSolid className="w-3.5 h-3.5 text-orange-400" />
-                          <span className="text-xs text-gray-500">{food.rating || '4.5'}</span>
+                          <span className="text-xs text-gray-600 font-medium">
+                            {stats.avgRating > 0 ? stats.avgRating : '-'}
+                          </span>
                           <span className="text-xs text-gray-300">•</span>
-                          <span className="text-xs text-gray-400">{food.sold_count || 0}+ terjual</span>
+                          <span className="text-xs text-gray-400">{stats.soldCount}+ terjual</span>
                         </div>
-
-                        {/* Tombol tambah ke keranjang */}
-                        <button
-                          onClick={e => handleAddToCart(e, food)}
+                        <button onClick={e => handleAddToCart(e, food)}
                           className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center hover:bg-orange-600 transition shadow-sm shadow-orange-200">
                           <PlusIcon className="w-4 h-4 text-white" />
                         </button>
                       </div>
 
-                      {/* Hint untuk yang belum login */}
                       {!user && (
                         <button
                           onClick={() => {
