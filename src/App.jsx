@@ -17,6 +17,7 @@ import AdminFoods from './pages/admin/AdminFoods'
 import AdminOrders from './pages/admin/AdminOrders'
 import AdminCategories from './pages/admin/AdminCategories'
 import AdminCustomers from './pages/admin/AdminCustomers'
+import AdminReviews from './pages/admin/AdminReviews'
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
       <Route path="/admin/orders" element={<AdminOrders />} />
       <Route path="/admin/categories" element={<AdminCategories />} />
       <Route path="/admin/customers" element={<AdminCustomers />} />
+      <Route path="/admin/reviews" element={<AdminReviews />} />
 
       {/* Public - dengan Navbar */}
       <Route path="/*" element={
