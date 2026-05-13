@@ -42,26 +42,32 @@ export default function AdminSidebar() {
 
       <div className="px-3 mb-2">
         <Link to="/admin"
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition ${pathname === '/admin' ? 'bg-orange-50 text-orange-500' : 'text-gray-600 hover:bg-gray-50 hover:text-orange-500'}`}>
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition ${
+            pathname === '/admin' ? 'bg-orange-50 text-orange-500' : 'text-gray-600 hover:bg-gray-50 hover:text-orange-500'
+          }`}>
           <HomeIcon className="w-5 h-5" />
           Dashboard
         </Link>
       </div>
 
-      {sidebarItems.map(section => (
-        <div key={section.section} className="px-3 mb-4">
-          <p className="text-xs text-gray-400 font-semibold px-4 mb-2">{section.section}</p>
-          {section.items.map(item => (
-            <Link key={item.label} to={item.to}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition mb-1 ${pathname === item.to ? 'bg-orange-50 text-orange-500' : 'text-gray-600 hover:bg-gray-50 hover:text-orange-500'}`}>
-              <item.icon className="w-5 h-5" />
-              {item.label}
-            </Link>
-          ))}
-        </div>
-      ))}
+      <div className="flex-1 overflow-y-auto">
+        {sidebarItems.map(section => (
+          <div key={section.section} className="px-3 mb-4">
+            <p className="text-xs text-gray-400 font-semibold px-4 mb-2">{section.section}</p>
+            {section.items.map(item => (
+              <Link key={item.to} to={item.to}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition mb-1 ${
+                  pathname === item.to ? 'bg-orange-50 text-orange-500' : 'text-gray-600 hover:bg-gray-50 hover:text-orange-500'
+                }`}>
+                <item.icon className="w-5 h-5" />
+                {item.label}
+              </Link>
+            ))}
+          </div>
+        ))}
+      </div>
 
-      <div className="mt-auto px-3">
+      <div className="px-3">
         <button onClick={handleLogout}
           className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-500 hover:bg-red-50 hover:text-red-500 text-sm font-medium transition w-full">
           <ArrowRightOnRectangleIcon className="w-5 h-5" />
