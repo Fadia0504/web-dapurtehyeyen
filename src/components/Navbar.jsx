@@ -6,6 +6,7 @@ import {
   MagnifyingGlassIcon, ShoppingCartIcon,
   ChevronDownIcon, Squares2X2Icon, ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline'
+import Swal from 'sweetalert2'
 
 export default function Navbar() {
   const items = useCartStore(state => state.items)
@@ -35,6 +36,21 @@ export default function Navbar() {
   }
 
   const handleLogout = async () => {
+    const result = await Swal.fire({
+      icon: 'question',
+      title: 'Keluar dari Akun?',
+      text: 'Kamu akan keluar dari sesi ini.',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#e5e7eb',
+      confirmButtonText: 'Ya, Keluar',
+      cancelButtonText: 'Batal',
+      customClass: {
+        popup: 'rounded-2xl',
+        cancelButton: '!text-gray-700',
+      },
+    })
+    if (!result.isConfirmed) return
     await logout()
     setDropdown(false)
     navigate('/')
@@ -57,7 +73,7 @@ export default function Navbar() {
           src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/rawr.png"
           alt="Logo" className="h-10 w-auto object-contain"
         />
-        <span className="text-xl font-black text-orange-500" style={{fontFamily:'Playfair Display, serif'}}>
+        <span className="text-xl font-black text-orange-500" style={{ fontFamily: 'Playfair Display, serif' }}>
           Dapur Teh Yeyen
         </span>
       </Link>
@@ -65,9 +81,11 @@ export default function Navbar() {
       <div className="flex gap-8 items-center">
         {links.map(l => (
           <Link key={l.label} to={l.to} onClick={l.onClick}
-            className={`text-sm font-medium transition ${pathname === l.to
-              ? 'text-orange-500 border-b-2 border-orange-500 pb-1'
-              : 'text-gray-600 hover:text-orange-500'}`}>
+            className={`text-sm font-medium transition ${
+              pathname === l.to
+                ? 'text-orange-500 border-b-2 border-orange-500 pb-1'
+                : 'text-gray-600 hover:text-orange-500'
+            }`}>
             {l.label}
           </Link>
         ))}
@@ -77,6 +95,7 @@ export default function Navbar() {
         <button className="text-gray-600 hover:text-orange-500 transition">
           <MagnifyingGlassIcon className="w-6 h-6" />
         </button>
+
         <Link to="/cart" className="relative text-gray-600 hover:text-orange-500 transition">
           <ShoppingCartIcon className="w-6 h-6" />
           {totalItems > 0 && (
@@ -90,15 +109,22 @@ export default function Navbar() {
           <div className="relative" ref={dropRef}>
             <button onClick={() => setDropdown(!dropdown)}
               className="flex items-center gap-2 hover:bg-gray-50 px-3 py-2 rounded-xl transition">
-              <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center font-bold text-orange-500 text-sm">
-                {name[0].toUpperCase()}
+              <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center font-bold text-orange-500 text-sm overflow-hidden">
+                {profile?.avatar_url
+                  ? <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                  : name[0].toUpperCase()
+                }
               </div>
               <span className="text-sm font-medium text-gray-700">Halo, {name.split(' ')[0]}</span>
-              <ChevronDownIcon className={`w-4 h-4 text-gray-400 transition ${dropdown ? 'rotate-180' : ''}`} />
+              <ChevronDownIcon className={`w-4 h-4 text-gray-400 transition-transform ${dropdown ? 'rotate-180' : ''}`} />
             </button>
 
             {dropdown && (
-              <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+              <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-50">
+                  <p className="text-sm font-semibold text-gray-800 truncate">{name}</p>
+                  <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+                </div>
                 <Link
                   to={profile?.role === 'admin' ? '/admin' : '/dashboard'}
                   onClick={() => setDropdown(false)}
@@ -107,7 +133,7 @@ export default function Navbar() {
                   Dashboard
                 </Link>
                 <button onClick={handleLogout}
-                  className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-red-50 hover:text-red-500 transition w-full">
+                  className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-red-50 hover:text-red-500 transition w-full text-left border-t border-gray-50">
                   <ArrowRightOnRectangleIcon className="w-5 h-5" />
                   Logout
                 </button>

@@ -10,6 +10,7 @@ import {
   StarIcon as StarOutline, CalendarIcon
 } from '@heroicons/react/24/outline'
 import { StarIcon as StarSolid } from '@heroicons/react/24/solid'
+import Swal from 'sweetalert2'
 
 function StarDisplay({ rating, size = 'sm' }) {
   const w = size === 'sm' ? 'w-4 h-4' : 'w-5 h-5'
@@ -111,26 +112,109 @@ export default function AdminReviews() {
   }
 
   const handleDeleteReview = async (id) => {
-    if (!confirm('Hapus ulasan ini?')) return
-    await supabase.from('food_reviews').delete().eq('id', id)
+    const result = await Swal.fire({
+      icon: 'warning',
+      title: 'Hapus Ulasan?',
+      text: 'Ulasan ini akan dihapus secara permanen.',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#e5e7eb',
+      confirmButtonText: 'Ya, Hapus',
+      cancelButtonText: 'Batal',
+      customClass: { popup: 'rounded-2xl', cancelButton: '!text-gray-700' },
+    })
+    if (!result.isConfirmed) return
+    const { error } = await supabase.from('food_reviews').delete().eq('id', id)
+    if (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Gagal Menghapus',
+        text: error.message,
+        confirmButtonColor: '#f97316',
+        customClass: { popup: 'rounded-2xl' },
+      })
+      return
+    }
     setShowDetailReview(null)
     await fetchReviews()
+    Swal.fire({
+      icon: 'success',
+      title: 'Berhasil Dihapus',
+      text: 'Ulasan telah dihapus.',
+      confirmButtonColor: '#f97316',
+      timer: 1800,
+      timerProgressBar: true,
+      showConfirmButton: false,
+      customClass: { popup: 'rounded-2xl' },
+    })
   }
 
   const handleDeleteTestimoni = async (id) => {
-    if (!confirm('Hapus testimoni ini?')) return
-    await supabase.from('testimonials').delete().eq('id', id)
+    const result = await Swal.fire({
+      icon: 'warning',
+      title: 'Hapus Testimoni?',
+      text: 'Testimoni ini akan dihapus secara permanen.',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#e5e7eb',
+      confirmButtonText: 'Ya, Hapus',
+      cancelButtonText: 'Batal',
+      customClass: { popup: 'rounded-2xl', cancelButton: '!text-gray-700' },
+    })
+    if (!result.isConfirmed) return
+    const { error } = await supabase.from('testimonials').delete().eq('id', id)
+    if (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Gagal Menghapus',
+        text: error.message,
+        confirmButtonColor: '#f97316',
+        customClass: { popup: 'rounded-2xl' },
+      })
+      return
+    }
     setShowDetailTestimoni(null)
     await fetchTestimonials()
+    Swal.fire({
+      icon: 'success',
+      title: 'Berhasil Dihapus',
+      text: 'Testimoni telah dihapus.',
+      confirmButtonColor: '#f97316',
+      timer: 1800,
+      timerProgressBar: true,
+      showConfirmButton: false,
+      customClass: { popup: 'rounded-2xl' },
+    })
   }
 
   const handleBulkDelete = async () => {
-    if (!confirm(`Hapus ${selectedReviews.size} ulasan terpilih?`)) return
+    const result = await Swal.fire({
+      icon: 'warning',
+      title: `Hapus ${selectedReviews.size} Ulasan?`,
+      text: 'Semua ulasan terpilih akan dihapus secara permanen.',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#e5e7eb',
+      confirmButtonText: 'Ya, Hapus Semua',
+      cancelButtonText: 'Batal',
+      customClass: { popup: 'rounded-2xl', cancelButton: '!text-gray-700' },
+    })
+    if (!result.isConfirmed) return
     for (const id of selectedReviews) {
       await supabase.from('food_reviews').delete().eq('id', id)
     }
     setSelectedReviews(new Set())
     await fetchReviews()
+    Swal.fire({
+      icon: 'success',
+      title: 'Berhasil Dihapus',
+      text: 'Semua ulasan terpilih telah dihapus.',
+      confirmButtonColor: '#f97316',
+      timer: 1800,
+      timerProgressBar: true,
+      showConfirmButton: false,
+      customClass: { popup: 'rounded-2xl' },
+    })
   }
 
   const handleToggleSelect = (id) => {
@@ -170,6 +254,18 @@ export default function AdminReviews() {
   }
 
   const handleLogout = async () => {
+    const result = await Swal.fire({
+      icon: 'question',
+      title: 'Keluar dari Akun?',
+      text: 'Kamu akan keluar dari sesi admin ini.',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#e5e7eb',
+      confirmButtonText: 'Ya, Keluar',
+      cancelButtonText: 'Batal',
+      customClass: { popup: 'rounded-2xl', cancelButton: '!text-gray-700' },
+    })
+    if (!result.isConfirmed) return
     await supabase.auth.signOut()
     window.location.href = '/login'
   }
@@ -270,7 +366,7 @@ export default function AdminReviews() {
         <main className="p-8">
           {/* Page Header */}
           <div className="mb-4">
-            <h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: 'Playfair Display, serif' }}>
+            <h1 className="text-2xl font-bold text-gray-800 tracking-tight">
               Ulasan &amp; Testimoni
             </h1>
             <p className="text-gray-400 text-sm mt-1">Kelola semua ulasan menu dan testimoni pelanggan.</p>
@@ -301,29 +397,21 @@ export default function AdminReviews() {
           {/* ===== TAB ULASAN ===== */}
           {activeTab === 'ulasan' && (
             <>
-              {/* Stats — hanya 2 card */}
+              {/* Stats — 2 card */}
               <div className="grid grid-cols-2 gap-4 mb-6 max-w-lg">
                 <div className="bg-yellow-50 rounded-2xl p-5 flex items-center gap-4">
-                  <div className="bg-yellow-100 w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
-                    ⭐
-                  </div>
+                  <div className="bg-yellow-100 w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">⭐</div>
                   <div>
                     <p className="text-xs text-gray-500 font-medium mb-0.5">Total Ulasan</p>
                     <p className="text-3xl font-black text-gray-900">{totalReviews}</p>
-                    <p className="text-xs text-green-500 font-medium mt-0.5">
-                      +{reviewsThisMonth} bulan ini
-                    </p>
+                    <p className="text-xs text-green-500 font-medium mt-0.5">+{reviewsThisMonth} bulan ini</p>
                   </div>
                 </div>
                 <div className="bg-purple-50 rounded-2xl p-5 flex items-center gap-4">
-                  <div className="bg-purple-100 w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
-                    🌟
-                  </div>
+                  <div className="bg-purple-100 w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">🌟</div>
                   <div>
                     <p className="text-xs text-gray-500 font-medium mb-0.5">Rata-rata Rating</p>
-                    <p className="text-3xl font-black text-gray-900">
-                      {avgRating} <span className="text-lg text-gray-400 font-normal">/ 5</span>
-                    </p>
+                    <p className="text-3xl font-black text-gray-900">{avgRating} <span className="text-lg text-gray-400 font-normal">/ 5</span></p>
                     <StarDisplay rating={Math.round(avgRating)} size="sm" />
                   </div>
                 </div>
@@ -375,7 +463,7 @@ export default function AdminReviews() {
                 </button>
               </div>
 
-              {/* Tabel Ulasan */}
+              {/* Tabel */}
               <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
                 <table className="w-full">
                   <thead>
@@ -430,15 +518,11 @@ export default function AdminReviews() {
                                 : <div className="w-full h-full flex items-center justify-center text-xl">🍽️</div>
                               }
                             </div>
-                            <p className="text-sm text-gray-700 line-clamp-2 leading-relaxed">
-                              {review.comment}
-                            </p>
+                            <p className="text-sm text-gray-700 line-clamp-2 leading-relaxed">{review.comment}</p>
                           </div>
                         </td>
                         <td className="px-4 py-4">
-                          <p className="text-sm font-medium text-gray-700 whitespace-nowrap">
-                            {review.foods?.name || '-'}
-                          </p>
+                          <p className="text-sm font-medium text-gray-700 whitespace-nowrap">{review.foods?.name || '-'}</p>
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-2">
@@ -455,13 +539,9 @@ export default function AdminReviews() {
                             </p>
                           </div>
                         </td>
+                        <td className="px-4 py-4"><StarDisplay rating={review.rating} /></td>
                         <td className="px-4 py-4">
-                          <StarDisplay rating={review.rating} />
-                        </td>
-                        <td className="px-4 py-4">
-                          <p className="text-xs text-gray-500 whitespace-nowrap">
-                            {formatDate(review.created_at)}
-                          </p>
+                          <p className="text-xs text-gray-500 whitespace-nowrap">{formatDate(review.created_at)}</p>
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-1.5">
@@ -497,9 +577,7 @@ export default function AdminReviews() {
                         : <button key={p} onClick={() => setPageReview(p)}
                             className={`w-8 h-8 rounded-lg text-sm font-medium transition ${
                               pageReview===p ? 'bg-orange-500 text-white' : 'border border-gray-200 hover:bg-gray-50'
-                            }`}>
-                            {p}
-                          </button>
+                            }`}>{p}</button>
                     )}
                     <button onClick={() => setPageReview(p => Math.min(totalPagesReview, p+1))} disabled={pageReview>=totalPagesReview}
                       className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 disabled:opacity-40 transition">
@@ -571,9 +649,7 @@ export default function AdminReviews() {
                         <td className="px-4 py-4">
                           <p className="text-sm text-gray-500">{t.city || '-'}</p>
                         </td>
-                        <td className="px-4 py-4">
-                          <StarDisplay rating={t.rating || 5} />
-                        </td>
+                        <td className="px-4 py-4"><StarDisplay rating={t.rating || 5} /></td>
                         <td className="px-4 py-4">
                           <p className="text-xs text-gray-500 whitespace-nowrap">{formatDate(t.created_at)}</p>
                         </td>
@@ -609,9 +685,7 @@ export default function AdminReviews() {
                         : <button key={p} onClick={() => setPageTestimoni(p)}
                             className={`w-8 h-8 rounded-lg text-sm font-medium transition ${
                               pageTestimoni===p ? 'bg-orange-500 text-white' : 'border border-gray-200 hover:bg-gray-50'
-                            }`}>
-                            {p}
-                          </button>
+                            }`}>{p}</button>
                     )}
                     <button onClick={() => setPageTestimoni(p => Math.min(totalPagesTestimoni, p+1))} disabled={pageTestimoni>=totalPagesTestimoni}
                       className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 disabled:opacity-40 transition">
@@ -672,9 +746,7 @@ export default function AdminReviews() {
                     }
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-800">
-                      {showDetailReview.profiles?.full_name || 'Pengguna'}
-                    </p>
+                    <p className="font-semibold text-gray-800">{showDetailReview.profiles?.full_name || 'Pengguna'}</p>
                     <p className="text-xs text-gray-400">{formatDate(showDetailReview.created_at)}</p>
                   </div>
                 </div>

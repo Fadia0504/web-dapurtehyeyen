@@ -1,18 +1,38 @@
 import { Link } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import FoodCard from '../components/FoodCard'
 import { StarIcon, TruckIcon, SparklesIcon } from '@heroicons/react/24/solid'
-import { ShoppingBagIcon } from '@heroicons/react/24/outline'
+import { ShoppingBagIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 
 export default function Home() {
   const [popularFoods, setPopularFoods] = useState([])
+  const [testimonials, setTestimonials] = useState([])
+  const scrollRef = useRef()
 
   useEffect(() => {
     supabase.from('foods').select('*, categories(name)')
       .eq('is_available', true).limit(3)
       .then(({ data }) => setPopularFoods(data || []))
+
+    supabase.from('testimonials').select('*')
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setTestimonials(data || []))
   }, [])
+
+  const scroll = (dir) => {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollBy({ left: dir === 'left' ? -300 : 300, behavior: 'smooth' })
+  }
+
+  const displayTestimonials = testimonials.length > 0 ? testimonials : [
+    { id: 1, name: 'Siti Rahayu', rating: 5, city: 'Jakarta', text: 'Makanannya enak banget! Nasi gorengnya juara, selalu jadi pilihan makan siang keluarga kami.' },
+    { id: 2, name: 'Budi Santoso', rating: 5, city: 'Bekasi', text: 'Pengiriman cepat, makanan masih hangat. Paket cateringnya sangat recommended banget!' },
+    { id: 3, name: 'Dewi Lestari', rating: 5, city: 'Depok', text: 'Harga terjangkau, porsi besar, rasa tidak kalah sama restoran mewah. Langganan terus!' },
+    { id: 4, name: 'Andi Wijaya', rating: 5, city: 'Tangerang', text: 'Catering untuk acara kantor kami selalu pesan di sini. Pelayanan ramah dan tepat waktu!' },
+    { id: 5, name: 'Rina Sari', rating: 5, city: 'Bogor', text: 'Sudah berlangganan 3 bulan, kualitas konsisten enak. Paket cateringnya sangat worth it!' },
+  ]
 
   return (
     <div className="font-sans">
@@ -23,7 +43,7 @@ export default function Home() {
         <div className="relative z-10 max-w-6xl mx-auto px-8 w-full grid grid-cols-2 gap-8 items-center">
           <div>
             <p className="text-orange-500 font-semibold text-sm mb-3 tracking-widest uppercase">— Restaurant</p>
-            <h1 className="text-6xl font-black leading-tight text-gray-900 mb-6" style={{fontFamily:'Playfair Display, serif'}}>
+            <h1 className="text-6xl font-black leading-tight text-gray-900 mb-6" style={{ fontFamily: 'Playfair Display, serif' }}>
               We Serve<br />
               <span className="text-orange-500">Delicious</span> Food
             </h1>
@@ -37,40 +57,30 @@ export default function Home() {
             </Link>
           </div>
 
-          {/* Hero Image Area */}
           <div className="relative flex justify-center items-center h-[480px]">
-            {/* Main circle - foto makanan utama */}
             <div className="w-80 h-80 bg-white rounded-full shadow-2xl overflow-hidden border-4 border-white">
               <img
                 src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/nasi-goreng.jpeg"
-                alt="Featured Food"
-                className="w-full h-full object-cover"
-                onError={(e) => { e.target.style.display='none'; e.target.parentElement.innerHTML='<div class="w-full h-full bg-orange-50 flex items-center justify-center text-8xl">🍛</div>' }}
+                alt="Featured Food" className="w-full h-full object-cover"
+                onError={e => { e.target.style.display='none'; e.target.parentElement.innerHTML='<div class="w-full h-full bg-orange-50 flex items-center justify-center text-8xl">🍛</div>' }}
               />
             </div>
-            {/* Bubble kecil - foto lain */}
             <div className="absolute top-6 right-10 w-20 h-20 bg-white rounded-full shadow-lg overflow-hidden border-2 border-white">
-              <img
-                src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/nasi-kebuli.jpeg"
-                alt="Food 2"
-                className="w-full h-full object-cover"
-                onError={(e) => { e.target.style.display='none'; e.target.parentElement.innerHTML='<div class="w-full h-full bg-orange-50 flex items-center justify-center text-2xl">🥗</div>' }}
+              <img src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/nasi-kebuli.jpeg"
+                alt="Food 2" className="w-full h-full object-cover"
+                onError={e => { e.target.style.display='none'; e.target.parentElement.innerHTML='<div class="w-full h-full bg-orange-50 flex items-center justify-center text-2xl">🥗</div>' }}
               />
             </div>
             <div className="absolute bottom-10 right-6 w-16 h-16 bg-white rounded-full shadow-lg overflow-hidden border-2 border-white">
-              <img
-                src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/klepon.jpeg"
-                alt="Food 3"
-                className="w-full h-full object-cover"
-                onError={(e) => { e.target.style.display='none'; e.target.parentElement.innerHTML='<div class="w-full h-full bg-orange-50 flex items-center justify-center text-2xl">🍜</div>' }}
+              <img src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/klepon.jpeg"
+                alt="Food 3" className="w-full h-full object-cover"
+                onError={e => { e.target.style.display='none'; e.target.parentElement.innerHTML='<div class="w-full h-full bg-orange-50 flex items-center justify-center text-2xl">🍜</div>' }}
               />
             </div>
             <div className="absolute bottom-16 left-6 w-16 h-16 bg-white rounded-full shadow-lg overflow-hidden border-2 border-white">
-              <img
-                src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/nasi-goreng.jpeg"
-                alt="Food 4"
-                className="w-full h-full object-cover"
-                onError={(e) => { e.target.style.display='none'; e.target.parentElement.innerHTML='<div class="w-full h-full bg-orange-50 flex items-center justify-center text-2xl">🍲</div>' }}
+              <img src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/nasi-goreng.jpeg"
+                alt="Food 4" className="w-full h-full object-cover"
+                onError={e => { e.target.style.display='none'; e.target.parentElement.innerHTML='<div class="w-full h-full bg-orange-50 flex items-center justify-center text-2xl">🍲</div>' }}
               />
             </div>
           </div>
@@ -82,18 +92,16 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-8 grid grid-cols-2 gap-16 items-center">
           <div className="relative">
             <div className="w-64 h-64 bg-orange-400 rounded-full absolute -left-6 -top-6 z-0" />
-            {/* Foto about us */}
             <div className="relative z-10 w-72 h-72 rounded-3xl shadow-xl overflow-hidden ml-8 border-4 border-white">
               <img
                 src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/nasi-kebuli.jpeg"
-                alt="About Us"
-                className="w-full h-full object-cover"
-                onError={(e) => { e.target.style.display='none'; e.target.parentElement.innerHTML='<div class="w-full h-full bg-orange-50 flex items-center justify-center text-8xl">🍱</div>' }}
+                alt="About Us" className="w-full h-full object-cover"
+                onError={e => { e.target.style.display='none'; e.target.parentElement.innerHTML='<div class="w-full h-full bg-orange-50 flex items-center justify-center text-8xl">🍱</div>' }}
               />
             </div>
           </div>
           <div>
-            <h2 className="text-4xl font-black text-gray-900 mb-4" style={{fontFamily:'Playfair Display, serif'}}>
+            <h2 className="text-4xl font-black text-gray-900 mb-4" style={{ fontFamily: 'Playfair Display, serif' }}>
               About <span className="text-orange-500">Us</span>
             </h2>
             <p className="text-gray-500 leading-relaxed mb-6">
@@ -110,7 +118,7 @@ export default function Home() {
       {/* POPULAR FOODS */}
       <section className="py-24 bg-gray-50">
         <div className="max-w-6xl mx-auto px-8">
-          <h2 className="text-4xl font-black text-center text-gray-900 mb-2" style={{fontFamily:'Playfair Display, serif'}}>
+          <h2 className="text-4xl font-black text-center text-gray-900 mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
             Most Popular <span className="text-orange-500">Food</span>
           </h2>
           <p className="text-center text-gray-400 mb-12">Menu favorit pelanggan setia kami</p>
@@ -133,7 +141,7 @@ export default function Home() {
       {/* WHY CHOOSE US */}
       <section className="py-24 bg-white">
         <div className="max-w-6xl mx-auto px-8">
-          <h2 className="text-4xl font-black text-center text-gray-900 mb-12" style={{fontFamily:'Playfair Display, serif'}}>
+          <h2 className="text-4xl font-black text-center text-gray-900 mb-12" style={{ fontFamily: 'Playfair Display, serif' }}>
             Why Choose Our <span className="text-orange-500">Food</span>
           </h2>
           <div className="grid grid-cols-3 gap-8">
@@ -152,35 +160,98 @@ export default function Home() {
         </div>
       </section>
 
-      {/* TESTIMONIAL */}
-      <section className="py-24 bg-gray-50">
+      {/* TESTIMONIALS */}
+      <section className="py-24 bg-gray-50 overflow-hidden">
         <div className="max-w-6xl mx-auto px-8">
-          <h2 className="text-4xl font-black text-center text-gray-900 mb-12" style={{fontFamily:'Playfair Display, serif'}}>
-            Customers <span className="text-orange-500">Say</span>
-          </h2>
-          <div className="grid grid-cols-3 gap-6">
-            {[
-              { name: 'Siti Rahayu', rating: 5, text: 'Makanannya enak banget! Nasi gorengnya juara, selalu jadi pilihan makan siang keluarga.' },
-              { name: 'Budi Santoso', rating: 5, text: 'Pengiriman cepat, makanan masih hangat. Mie gorengnya recommended banget!' },
-              { name: 'Dewi Lestari', rating: 5, text: 'Harga terjangkau, porsi besar, rasa tidak kalah sama restoran mewah. Langganan terus!' },
-            ].map((t, i) => (
-              <div key={i} className="bg-white p-6 rounded-3xl shadow-sm">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center text-xl font-bold text-orange-500">
-                    {t.name[0]}
+
+          {/* Header */}
+          <div className="text-center mb-14">
+            <span className="inline-flex items-center gap-1.5 bg-white border border-gray-200 text-gray-500 text-xs font-medium px-4 py-1.5 rounded-full mb-5 shadow-sm">
+              <StarIcon className="w-3.5 h-3.5 text-orange-400" />
+              Testimonials
+            </span>
+            <h2 className="text-4xl font-black text-gray-900" style={{ fontFamily: 'Playfair Display, serif' }}>
+              What Our <span className="text-orange-500 italic">Customers</span> Are Saying
+            </h2>
+          </div>
+
+          {/* Scrollable Cards */}
+          <div
+            ref={scrollRef}
+            className="flex gap-5 overflow-x-auto pb-4"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            {displayTestimonials.map((t, i) => {
+              const isCenter = i % 3 === 1
+              return (
+                <div key={t.id || i}
+                  className={`bg-white rounded-3xl flex-shrink-0 overflow-hidden border border-gray-100 transition-all ${
+                    isCenter
+                      ? 'w-72 shadow-2xl -mt-3'
+                      : 'w-64 shadow-md'
+                  }`}>
+
+                  {/* Foto atas */}
+                  <div className="h-44 overflow-hidden bg-gradient-to-br from-orange-100 to-orange-200 flex-shrink-0">
+                    {t.image ? (
+                      <img src={t.image} alt={t.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span className="text-7xl font-black text-orange-300 select-none">
+                          {(t.name || 'U')[0].toUpperCase()}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <p className="font-semibold text-gray-800">{t.name}</p>
-                    <div className="flex gap-0.5 mt-0.5">
-                      {[...Array(t.rating)].map((_, i) => (
-                        <StarIcon key={i} className="w-4 h-4 text-orange-400" />
-                      ))}
+
+                  {/* Konten */}
+                  <div className="p-5">
+                    <h3 className="font-bold text-gray-800 text-sm mb-2">
+                      {t.city ? `Pelanggan dari ${t.city}` : 'Pelanggan Setia'}
+                    </h3>
+                    <p className="text-gray-500 text-sm leading-relaxed italic mb-4 line-clamp-3">
+                      "{t.text}"
+                    </p>
+
+                    {/* Reviewer */}
+                    <div className="flex items-center gap-3 pt-3 border-t border-gray-50">
+                      <div className="w-9 h-9 rounded-full overflow-hidden bg-orange-100 flex-shrink-0 flex items-center justify-center">
+                        {t.image
+                          ? <img src={t.image} alt={t.name} className="w-full h-full object-cover" />
+                          : <span className="text-xs font-bold text-orange-500">{(t.name || 'U')[0].toUpperCase()}</span>
+                        }
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-800">{t.name}</p>
+                        <div className="flex gap-0.5 mt-0.5">
+                          {[...Array(t.rating || 5)].map((_, j) => (
+                            <StarIcon key={j} className="w-3 h-3 text-orange-400" />
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <p className="text-gray-500 italic leading-relaxed">"{t.text}"</p>
-              </div>
-            ))}
+              )
+            })}
+          </div>
+
+          {/* Navigasi panah — bawah tengah */}
+          <div className="flex justify-center gap-3 mt-10">
+            <button onClick={() => scroll('left')}
+              className="w-12 h-12 rounded-full bg-white border-2 border-gray-200 shadow-sm flex items-center justify-center hover:border-orange-500 hover:text-orange-500 hover:bg-orange-50 transition group">
+              <ChevronLeftIcon className="w-5 h-5 text-gray-500 group-hover:text-orange-500" />
+            </button>
+            <button onClick={() => scroll('right')}
+              className="w-12 h-12 rounded-full bg-orange-500 border-2 border-orange-500 shadow-sm flex items-center justify-center hover:bg-orange-600 transition">
+              <ChevronRightIcon className="w-5 h-5 text-white" />
+            </button>
+          </div>
+
+          {/* Link ke halaman testimoni */}
+          <div className="text-center mt-6">
+            <Link to="/testimonials" className="text-orange-500 text-sm font-medium hover:underline">
+              Lihat semua ulasan pelanggan →
+            </Link>
           </div>
         </div>
       </section>
@@ -189,28 +260,54 @@ export default function Home() {
       <footer className="bg-gray-900 text-white py-16">
         <div className="max-w-6xl mx-auto px-8 grid grid-cols-4 gap-8">
           <div>
-            <h3 className="text-xl font-black text-orange-500 mb-4">🍜 Dapur Teh Yeyen</h3>
-            <p className="text-gray-400 text-sm leading-relaxed">Masakan rumahan yang lezat, sehat, dan terjangkau.</p>
+            <div className="flex items-center gap-2 mb-4">
+              <img
+                src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/rawr.png"
+                alt="Logo" className="h-8 w-auto object-contain"
+                onError={e => { e.target.style.display='none' }}
+              />
+              <span className="text-lg font-black text-orange-500" style={{ fontFamily: 'Playfair Display, serif' }}>
+                Dapur Teh Yeyen
+              </span>
+            </div>
+            <p className="text-gray-400 text-sm leading-relaxed">
+              Masakan rumahan yang lezat, sehat, dan terjangkau untuk keluarga Indonesia.
+            </p>
           </div>
           <div>
-            <h4 className="font-semibold mb-4">Jam Buka</h4>
-            <p className="text-gray-400 text-sm">Sen–Jum: 09.00–18.00</p>
-            <p className="text-gray-400 text-sm">Sabtu: 09.00–16.00</p>
+            <h4 className="font-semibold mb-4 text-white">Jam Buka</h4>
+            <p className="text-gray-400 text-sm mb-1">Senin – Jumat: 09.00 – 18.00</p>
+            <p className="text-gray-400 text-sm mb-1">Sabtu: 09.00 – 16.00</p>
             <p className="text-gray-400 text-sm">Minggu: Tutup</p>
           </div>
           <div>
-            <h4 className="font-semibold mb-4">Kontak</h4>
-            <p className="text-gray-400 text-sm">Jakarta, Indonesia</p>
-            <p className="text-gray-400 text-sm">+62 812-3456-7890</p>
+            <h4 className="font-semibold mb-4 text-white">Kontak</h4>
+            <p className="text-gray-400 text-sm mb-1">Jakarta, Indonesia</p>
+            <p className="text-gray-400 text-sm mb-1">+62 812-3456-7890</p>
             <p className="text-gray-400 text-sm">dapur@tehyeyen.com</p>
           </div>
           <div>
-            <h4 className="font-semibold mb-4">Subscribe</h4>
+            <h4 className="font-semibold mb-4 text-white">Newsletter</h4>
+            <p className="text-gray-400 text-sm mb-3">Dapatkan promo dan menu terbaru.</p>
             <div className="flex">
               <input type="email" placeholder="Email kamu..."
-                className="bg-gray-800 text-white px-4 py-2 rounded-l-full text-sm flex-1 outline-none" />
-              <button className="bg-orange-500 px-4 py-2 rounded-r-full hover:bg-orange-600 transition">→</button>
+                className="bg-gray-800 text-white px-4 py-2.5 rounded-l-full text-sm flex-1 outline-none placeholder-gray-500 border border-gray-700 border-r-0" />
+              <button className="bg-orange-500 px-5 py-2.5 rounded-r-full hover:bg-orange-600 transition text-sm font-semibold border border-orange-500">
+                Kirim
+              </button>
             </div>
+          </div>
+        </div>
+
+        {/* Bottom bar */}
+        <div className="max-w-6xl mx-auto px-8 mt-10 pt-6 border-t border-gray-800 flex items-center justify-between">
+          <p className="text-gray-500 text-sm">
+            © {new Date().getFullYear()} Dapur Teh Yeyen. All rights reserved.
+          </p>
+          <div className="flex gap-6">
+            <Link to="/menu" className="text-gray-500 text-sm hover:text-orange-500 transition">Menu</Link>
+            <Link to="/testimonials" className="text-gray-500 text-sm hover:text-orange-500 transition">Testimoni</Link>
+            <Link to="/contact" className="text-gray-500 text-sm hover:text-orange-500 transition">Kontak</Link>
           </div>
         </div>
       </footer>

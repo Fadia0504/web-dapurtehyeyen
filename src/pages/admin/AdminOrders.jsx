@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import AdminSidebar from '../../components/admin/AdminSidebar'
 import AdminNotifBell from '../../components/admin/AdminNotifBell'
+import Swal from 'sweetalert2'
 import {
   ChevronDownIcon, ArrowRightOnRectangleIcon, EyeIcon,
   EllipsisHorizontalIcon, CalendarIcon, FunnelIcon,
@@ -101,6 +102,21 @@ export default function AdminOrders() {
   }
 
   const handleLogout = async () => {
+    const result = await Swal.fire({
+      icon: 'question',
+      title: 'Keluar dari Akun?',
+      text: 'Kamu akan keluar dari sesi admin ini.',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#e5e7eb',
+      confirmButtonText: 'Ya, Keluar',
+      cancelButtonText: 'Batal',
+      customClass: {
+        popup: 'rounded-2xl',
+        cancelButton: '!text-gray-700',
+      },
+    })
+    if (!result.isConfirmed) return
     await supabase.auth.signOut()
     window.location.href = '/login'
   }

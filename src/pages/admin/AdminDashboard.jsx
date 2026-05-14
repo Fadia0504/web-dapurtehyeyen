@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../store/authStore'
 import AdminSidebar from '../../components/admin/AdminSidebar'
 import AdminNotifBell from '../../components/admin/AdminNotifBell'
+import Swal from 'sweetalert2'
 import {
   MagnifyingGlassIcon, ChevronDownIcon, ArrowRightOnRectangleIcon,
   BanknotesIcon, ShoppingCartIcon, UserGroupIcon, CakeIcon
@@ -95,8 +96,23 @@ export default function AdminDashboard() {
   }
 
   const handleLogout = async () => {
+    const result = await Swal.fire({
+      icon: 'question',
+      title: 'Keluar dari Akun?',
+      text: 'Kamu akan keluar dari sesi admin ini.',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#e5e7eb',
+      confirmButtonText: 'Ya, Keluar',
+      cancelButtonText: 'Batal',
+      customClass: {
+        popup: 'rounded-2xl',
+        cancelButton: '!text-gray-700',
+      },
+    })
+    if (!result.isConfirmed) return
     await supabase.auth.signOut()
-    navigate('/login')
+    window.location.href = '/login'
   }
 
   const tabs = [

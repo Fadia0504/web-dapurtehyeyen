@@ -8,6 +8,7 @@ import {
   ArrowRightOnRectangleIcon, Cog6ToothIcon, CheckIcon
 } from '@heroicons/react/24/outline'
 import { useAuthStore } from '../../store/authStore'
+import Swal from 'sweetalert2'
 
 export default function AdminFoods() {
   const { profile } = useAuthStore()
@@ -59,26 +60,15 @@ export default function AdminFoods() {
     setLoading(false)
   }
 
-  // Auto-load template options berdasarkan kategori yang sama
   async function loadTemplateOptions(food) {
     const cat = categories.find(c => c.id === food.category_id)
     if (!cat) return []
-
-    // Cari food lain di kategori yang sama yang sudah punya options
     const { data: otherFoods } = await supabase
-      .from('foods')
-      .select('id')
-      .eq('category_id', food.category_id)
-      .neq('id', food.id)
-
+      .from('foods').select('id').eq('category_id', food.category_id).neq('id', food.id)
     if (!otherFoods || otherFoods.length === 0) return []
-
     for (const other of otherFoods) {
       const { data: opts } = await supabase
-        .from('food_options')
-        .select('*, food_option_items(*)')
-        .eq('food_id', other.id)
-
+        .from('food_options').select('*, food_option_items(*)').eq('food_id', other.id)
       if (opts && opts.length > 0) {
         return opts.map(g => ({
           ...g,
@@ -101,13 +91,8 @@ export default function AdminFoods() {
     setShowOptionsPanel(true)
     setLoadingOptions(true)
     setTemplateLoaded(false)
-
     const { data: existingOpts } = await supabase
-      .from('food_options')
-      .select('*, food_option_items(*)')
-      .eq('food_id', food.id)
-      .order('created_at')
-
+      .from('food_options').select('*, food_option_items(*)').eq('food_id', food.id).order('created_at')
     if (existingOpts && existingOpts.length > 0) {
       setOptionGroups(existingOpts)
       setLoadingOptions(false)
@@ -115,13 +100,26 @@ export default function AdminFoods() {
       const templateOpts = await loadTemplateOptions(food)
       setOptionGroups(templateOpts)
       setLoadingOptions(false)
-      if (templateOpts.length > 0) {
-        setTemplateLoaded(true)
-      }
+      if (templateOpts.length > 0) setTemplateLoaded(true)
     }
   }
 
   const handleLogout = async () => {
+    const result = await Swal.fire({
+      icon: 'question',
+      title: 'Keluar dari Akun?',
+      text: 'Kamu akan keluar dari sesi admin ini.',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#e5e7eb',
+      confirmButtonText: 'Ya, Keluar',
+      cancelButtonText: 'Batal',
+      customClass: {
+        popup: 'rounded-2xl',
+        cancelButton: '!text-gray-700',
+      },
+    })
+    if (!result.isConfirmed) return
     await supabase.auth.signOut()
     window.location.href = '/login'
   }
@@ -161,12 +159,26 @@ export default function AdminFoods() {
 
   const handleSave = async () => {
     if (!form.name || !form.category_id || !form.price) {
-      alert('Nama, kategori, dan harga wajib diisi!')
+      Swal.fire({
+        icon: 'warning',
+        title: 'Form Tidak Lengkap',
+        text: 'Nama, kategori, dan harga wajib diisi!',
+        confirmButtonColor: '#f97316',
+        confirmButtonText: 'OK',
+        customClass: { popup: 'rounded-2xl' },
+      })
       return
     }
     const finalPrice = parsePrice(form.price)
     if (isNaN(finalPrice) || finalPrice <= 0) {
-      alert('Harga tidak valid! Masukkan angka saja. Contoh: 15000')
+      Swal.fire({
+        icon: 'warning',
+        title: 'Harga Tidak Valid',
+        text: 'Masukkan angka saja. Contoh: 15000',
+        confirmButtonColor: '#f97316',
+        confirmButtonText: 'OK',
+        customClass: { popup: 'rounded-2xl' },
+      })
       return
     }
     setSaving(true)
@@ -196,22 +208,75 @@ export default function AdminFoods() {
       }
       await fetchData()
       setShowPanel(false)
+      Swal.fire({
+        icon: 'success',
+        title: editFood ? 'Menu Diperbarui!' : 'Menu Ditambahkan!',
+        text: `${form.name} berhasil ${editFood ? 'diperbarui' : 'ditambahkan'}.`,
+        confirmButtonColor: '#f97316',
+        timer: 2000,
+        timerProgressBar: true,
+        showConfirmButton: false,
+        customClass: { popup: 'rounded-2xl' },
+      })
     } catch (err) {
-      alert('Gagal menyimpan: ' + err.message)
+      Swal.fire({
+        icon: 'error',
+        title: 'Gagal Menyimpan',
+        text: err.message,
+        confirmButtonColor: '#f97316',
+        confirmButtonText: 'OK',
+        customClass: { popup: 'rounded-2xl' },
+      })
     } finally {
       setSaving(false)
     }
   }
 
   const handleDelete = async (food) => {
-    if (!confirm(`Hapus "${food.name}"?`)) return
+    const result = await Swal.fire({
+      icon: 'warning',
+      title: 'Hapus Menu?',
+      html: `Menu <strong>${food.name}</strong> akan dihapus secara permanen.`,
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#e5e7eb',
+      confirmButtonText: 'Ya, Hapus',
+      cancelButtonText: 'Batal',
+      customClass: {
+        popup: 'rounded-2xl',
+        cancelButton: '!text-gray-700',
+      },
+    })
+    if (!result.isConfirmed) return
     await supabase.from('foods').delete().eq('id', food.id)
     await fetchData()
+    Swal.fire({
+      icon: 'success',
+      title: 'Berhasil Dihapus',
+      text: `${food.name} telah dihapus.`,
+      confirmButtonColor: '#f97316',
+      timer: 1800,
+      timerProgressBar: true,
+      showConfirmButton: false,
+      customClass: { popup: 'rounded-2xl' },
+    })
   }
 
   const handleToggleStatus = async (food) => {
-    await supabase.from('foods').update({ is_available: !food.is_available }).eq('id', food.id)
+    const newStatus = !food.is_available
+    await supabase.from('foods').update({ is_available: newStatus }).eq('id', food.id)
     await fetchData()
+    const Toast = Swal.mixin({
+      toast: true,
+      position: 'bottom-end',
+      showConfirmButton: false,
+      timer: 2000,
+      timerProgressBar: true,
+    })
+    Toast.fire({
+      icon: newStatus ? 'success' : 'info',
+      title: `${food.name} ${newStatus ? 'diaktifkan' : 'dinonaktifkan'}`,
+    })
   }
 
   // === OPTION GROUP FUNCTIONS ===
@@ -232,7 +297,18 @@ export default function AdminFoods() {
   }
 
   const deleteOptionGroup = async (group) => {
-    if (!confirm(`Hapus grup "${group.group_name || 'ini'}"?`)) return
+    const result = await Swal.fire({
+      icon: 'warning',
+      title: 'Hapus Grup?',
+      text: `Grup "${group.group_name || 'ini'}" beserta semua pilihannya akan dihapus.`,
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#e5e7eb',
+      confirmButtonText: 'Ya, Hapus',
+      cancelButtonText: 'Batal',
+      customClass: { popup: 'rounded-2xl', cancelButton: '!text-gray-700' },
+    })
+    if (!result.isConfirmed) return
     if (!group.isNew) {
       await supabase.from('food_options').delete().eq('id', group.id)
     }
@@ -283,7 +359,6 @@ export default function AdminFoods() {
     try {
       for (const group of optionGroups) {
         let groupId = group.id
-
         if (group.isNew) {
           const { data: newGroup, error } = await supabase.from('food_options').insert({
             food_id: editFood.id,
@@ -300,7 +375,6 @@ export default function AdminFoods() {
             required: group.required,
           }).eq('id', group.id)
         }
-
         for (const item of (group.food_option_items || [])) {
           if (!item.name.trim()) continue
           if (item.isNew) {
@@ -317,33 +391,40 @@ export default function AdminFoods() {
           }
         }
       }
-
-      // Reload options yang sudah tersimpan
       const { data: saved } = await supabase
-        .from('food_options')
-        .select('*, food_option_items(*)')
-        .eq('food_id', editFood.id)
-        .order('created_at')
+        .from('food_options').select('*, food_option_items(*)')
+        .eq('food_id', editFood.id).order('created_at')
       setOptionGroups(saved || [])
       setTemplateLoaded(false)
-      alert('✅ Pilihan berhasil disimpan!')
+      Swal.fire({
+        icon: 'success',
+        title: 'Pilihan Disimpan!',
+        text: 'Semua pilihan kondimen berhasil disimpan.',
+        confirmButtonColor: '#f97316',
+        timer: 2000,
+        timerProgressBar: true,
+        showConfirmButton: false,
+        customClass: { popup: 'rounded-2xl' },
+      })
     } catch (err) {
-      alert('Gagal menyimpan pilihan: ' + err.message)
+      Swal.fire({
+        icon: 'error',
+        title: 'Gagal Menyimpan',
+        text: 'Gagal menyimpan pilihan: ' + err.message,
+        confirmButtonColor: '#f97316',
+        confirmButtonText: 'OK',
+        customClass: { popup: 'rounded-2xl' },
+      })
     } finally {
       setSavingOptions(false)
     }
   }
 
-  // Tambah template default untuk Paket Catering secara manual
   const handleAddCateringTemplate = () => {
     const template = [
       {
-        id: `new-${Date.now()}-1`,
-        isNew: true,
-        food_id: editFood?.id,
-        group_name: 'Pilih 1 Lauk',
-        group_type: 'single',
-        required: true,
+        id: `new-${Date.now()}-1`, isNew: true, food_id: editFood?.id,
+        group_name: 'Pilih 1 Lauk', group_type: 'single', required: true,
         food_option_items: [
           { id: `new-item-${Date.now()}-1`, isNew: true, name: 'Ayam Goreng Lengkuas', extra_price: 0 },
           { id: `new-item-${Date.now()}-2`, isNew: true, name: 'Ayam Bakar Madu', extra_price: 0 },
@@ -353,12 +434,8 @@ export default function AdminFoods() {
         ]
       },
       {
-        id: `new-${Date.now()}-2`,
-        isNew: true,
-        food_id: editFood?.id,
-        group_name: 'Pilih 1 Tumisan',
-        group_type: 'single',
-        required: true,
+        id: `new-${Date.now()}-2`, isNew: true, food_id: editFood?.id,
+        group_name: 'Pilih 1 Tumisan', group_type: 'single', required: true,
         food_option_items: [
           { id: `new-item-${Date.now()}-6`, isNew: true, name: 'Capcay', extra_price: 0 },
           { id: `new-item-${Date.now()}-7`, isNew: true, name: 'Tumis Buncis Wortel', extra_price: 0 },
@@ -368,12 +445,8 @@ export default function AdminFoods() {
         ]
       },
       {
-        id: `new-${Date.now()}-3`,
-        isNew: true,
-        food_id: editFood?.id,
-        group_name: 'Pilih 1 Sambal',
-        group_type: 'single',
-        required: true,
+        id: `new-${Date.now()}-3`, isNew: true, food_id: editFood?.id,
+        group_name: 'Pilih 1 Sambal', group_type: 'single', required: true,
         food_option_items: [
           { id: `new-item-${Date.now()}-11`, isNew: true, name: 'Sambal Terasi', extra_price: 0 },
           { id: `new-item-${Date.now()}-12`, isNew: true, name: 'Sambal Bawang', extra_price: 0 },
@@ -383,12 +456,8 @@ export default function AdminFoods() {
         ]
       },
       {
-        id: `new-${Date.now()}-4`,
-        isNew: true,
-        food_id: editFood?.id,
-        group_name: 'Tambah Add On',
-        group_type: 'multiple',
-        required: false,
+        id: `new-${Date.now()}-4`, isNew: true, food_id: editFood?.id,
+        group_name: 'Tambah Add On', group_type: 'multiple', required: false,
         food_option_items: [
           { id: `new-item-${Date.now()}-16`, isNew: true, name: 'Telur Dadar', extra_price: 2000 },
           { id: `new-item-${Date.now()}-17`, isNew: true, name: 'Perkedel Kentang (2 pcs)', extra_price: 2000 },
@@ -412,7 +481,6 @@ export default function AdminFoods() {
   const paginated = filtered.slice((page - 1) * perPage, page * perPage)
   const adminName = profile?.full_name || 'Admin'
 
-  // Cek apakah menu yang dipilih adalah Paket Catering
   const isCateringFood = () => {
     if (!editFood) return false
     const cat = categories.find(c => c.id === editFood.category_id)
@@ -463,9 +531,7 @@ export default function AdminFoods() {
 
         <main className="p-8">
           <div className="mb-6">
-            <h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: 'Playfair Display, serif' }}>
-              Kelola Menu
-            </h1>
+            <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Kelola Menu</h1>
             <p className="text-gray-400 text-sm mt-1">Kelola semua menu makanan yang tersedia.</p>
           </div>
 
@@ -518,9 +584,10 @@ export default function AdminFoods() {
                   ))
                 ) : paginated.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-center py-12 text-gray-400">
-                      <p className="text-3xl mb-2">🍽️</p>
-                      <p>Tidak ada menu ditemukan</p>
+                    <td colSpan={5} className="text-center py-14 text-gray-400">
+                      <MagnifyingGlassIcon className="w-10 h-10 text-gray-200 mx-auto mb-2" />
+                      <p className="font-medium text-gray-500">Tidak ada menu ditemukan</p>
+                      <p className="text-sm">Coba ubah kata kunci atau filter</p>
                     </td>
                   </tr>
                 ) : paginated.map(food => (
@@ -541,9 +608,9 @@ export default function AdminFoods() {
                     </td>
                     <td className="px-4 py-4">
                       <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                        food.categories?.name === 'Paket Catering' ? 'bg-purple-100 text-purple-600'
-                        : food.categories?.name === 'Ala Carte' ? 'bg-blue-100 text-blue-600'
-                        : food.categories?.name === 'Minuman' ? 'bg-cyan-100 text-cyan-600'
+                        food.categories?.name?.includes('Catering') ? 'bg-purple-100 text-purple-600'
+                        : food.categories?.name?.includes('Ala Carte') ? 'bg-blue-100 text-blue-600'
+                        : food.categories?.name?.includes('Minuman') ? 'bg-cyan-100 text-cyan-600'
                         : 'bg-yellow-100 text-yellow-600'
                       }`}>
                         {food.categories?.name}
@@ -565,18 +632,15 @@ export default function AdminFoods() {
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-2">
-                        <button onClick={() => openEdit(food)}
-                          title="Edit Menu"
+                        <button onClick={() => openEdit(food)} title="Edit Menu"
                           className="w-8 h-8 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-orange-50 hover:border-orange-300 hover:text-orange-500 transition">
                           <PencilIcon className="w-4 h-4" />
                         </button>
-                        <button onClick={() => openOptions(food)}
-                          title="Kelola Pilihan Kondimen"
+                        <button onClick={() => openOptions(food)} title="Kelola Pilihan Kondimen"
                           className="w-8 h-8 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-blue-50 hover:border-blue-300 hover:text-blue-500 transition">
                           <Cog6ToothIcon className="w-4 h-4" />
                         </button>
-                        <button onClick={() => handleDelete(food)}
-                          title="Hapus"
+                        <button onClick={() => handleDelete(food)} title="Hapus"
                           className="w-8 h-8 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-red-50 hover:border-red-300 hover:text-red-500 transition">
                           <TrashIcon className="w-4 h-4" />
                         </button>
@@ -590,18 +654,18 @@ export default function AdminFoods() {
             {totalPages > 1 && (
               <div className="flex items-center justify-between px-6 py-4 border-t border-gray-50">
                 <p className="text-sm text-gray-400">
-                  Menampilkan {(page - 1) * perPage + 1} - {Math.min(page * perPage, filtered.length)} dari {filtered.length} menu
+                  Menampilkan {(page-1)*perPage+1} - {Math.min(page*perPage, filtered.length)} dari {filtered.length} menu
                 </p>
                 <div className="flex gap-1">
-                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                  <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page===1}
                     className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-sm hover:bg-gray-50 disabled:opacity-40 transition">‹</button>
                   {[...Array(totalPages)].map((_, i) => (
-                    <button key={i} onClick={() => setPage(i + 1)}
-                      className={`w-8 h-8 rounded-lg text-sm font-medium transition ${page === i + 1 ? 'bg-orange-500 text-white' : 'border border-gray-200 hover:bg-gray-50'}`}>
-                      {i + 1}
+                    <button key={i} onClick={() => setPage(i+1)}
+                      className={`w-8 h-8 rounded-lg text-sm font-medium transition ${page===i+1 ? 'bg-orange-500 text-white' : 'border border-gray-200 hover:bg-gray-50'}`}>
+                      {i+1}
                     </button>
                   ))}
-                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                  <button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page===totalPages}
                     className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-sm hover:bg-gray-50 disabled:opacity-40 transition">›</button>
                 </div>
               </div>
@@ -616,14 +680,18 @@ export default function AdminFoods() {
           <div className="flex-1 bg-black/30" onClick={() => setShowPanel(false)} />
           <div className="w-96 bg-white h-full overflow-y-auto shadow-2xl">
             <div className="flex justify-between items-center px-6 py-5 border-b border-gray-100 sticky top-0 bg-white z-10">
-              <h2 className="font-bold text-gray-900">{editFood ? 'Edit Menu' : 'Tambah Menu'}</h2>
+              <div>
+                <h2 className="font-bold text-gray-900">{editFood ? 'Edit Menu' : 'Tambah Menu'}</h2>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {editFood ? 'Perbarui informasi menu' : 'Isi detail menu baru'}
+                </p>
+              </div>
               <button onClick={() => setShowPanel(false)}
                 className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition">
                 <XMarkIcon className="w-5 h-5 text-gray-500" />
               </button>
             </div>
             <div className="p-6 space-y-5">
-
               <div>
                 <h3 className="font-semibold text-gray-800 mb-4">Informasi Dasar</h3>
                 <div className="space-y-4">
@@ -656,7 +724,7 @@ export default function AdminFoods() {
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm font-medium text-gray-700 block mb-1">
-                      Harga Jual * <span className="text-gray-400 font-normal">(angka saja, tanpa titik)</span>
+                      Harga Jual * <span className="text-gray-400 font-normal">(angka saja)</span>
                     </label>
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">Rp</span>
@@ -667,7 +735,7 @@ export default function AdminFoods() {
                     </div>
                     {form.price && Number(form.price) > 0 && (
                       <div className="mt-2 flex items-center gap-2 bg-orange-50 rounded-xl px-3 py-2">
-                        <span className="text-xs text-gray-500">Harga tersimpan:</span>
+                        <span className="text-xs text-gray-500">Preview:</span>
                         <span className="text-sm font-bold text-orange-500">
                           Rp {Number(form.price).toLocaleString('id-ID')}
                         </span>
@@ -720,8 +788,8 @@ export default function AdminFoods() {
                 <h3 className="font-semibold text-gray-800 mb-4">Status</h3>
                 <div className="flex items-center justify-between bg-gray-50 rounded-xl p-4">
                   <div>
-                    <p className="font-medium text-gray-800 text-sm">Aktif</p>
-                    <p className="text-xs text-gray-400">Menu akan ditampilkan ke pelanggan</p>
+                    <p className="font-medium text-gray-800 text-sm">Tampilkan ke Pelanggan</p>
+                    <p className="text-xs text-gray-400">Menu akan muncul di halaman menu</p>
                   </div>
                   <button onClick={() => setForm({ ...form, is_available: !form.is_available })}
                     className={`w-12 h-6 rounded-full transition-colors relative ${form.is_available ? 'bg-orange-500' : 'bg-gray-200'}`}>
@@ -736,8 +804,11 @@ export default function AdminFoods() {
                   Batal
                 </button>
                 <button onClick={handleSave} disabled={saving}
-                  className="flex-1 bg-orange-500 text-white py-3 rounded-xl font-semibold text-sm hover:bg-orange-600 transition disabled:opacity-50">
-                  {saving ? 'Menyimpan...' : 'Simpan'}
+                  className="flex-1 bg-orange-500 text-white py-3 rounded-xl font-semibold text-sm hover:bg-orange-600 transition disabled:opacity-50 flex items-center justify-center gap-2">
+                  {saving
+                    ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Menyimpan...</>
+                    : editFood ? 'Simpan Perubahan' : 'Tambah Menu'
+                  }
                 </button>
               </div>
             </div>
@@ -762,29 +833,25 @@ export default function AdminFoods() {
             </div>
 
             <div className="p-6">
-
-              {/* Info Banner */}
               {templateLoaded ? (
                 <div className="bg-green-50 rounded-2xl p-4 mb-5 flex items-start gap-3">
-                  <span className="text-xl">✅</span>
+                  <CheckIcon className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-sm text-green-700 font-semibold mb-0.5">Template Otomatis Dimuat!</p>
+                    <p className="text-sm text-green-700 font-semibold mb-0.5">Template Otomatis Dimuat</p>
                     <p className="text-xs text-green-600 leading-relaxed">
-                      Pilihan kondimen sudah disalin otomatis. Kamu bisa edit sesuai kebutuhan, lalu klik <strong>Simpan Semua</strong>.
+                      Pilihan kondimen sudah disalin otomatis. Edit sesuai kebutuhan lalu klik Simpan Semua.
                     </p>
                   </div>
                 </div>
               ) : (
                 <div className="bg-blue-50 rounded-2xl p-4 mb-5">
-                  <p className="text-sm text-blue-700 font-semibold mb-1">ℹ️ Kelola Pilihan Kondimen</p>
+                  <p className="text-sm text-blue-700 font-semibold mb-1">Kelola Pilihan Kondimen</p>
                   <p className="text-xs text-blue-600 leading-relaxed">
                     Tambah grup pilihan seperti "Pilih 1 Lauk", "Pilih 1 Tumisan", dll.
-                    Untuk Paket Catering, gunakan tombol template di bawah agar lebih cepat.
                   </p>
                 </div>
               )}
 
-              {/* Tombol Aksi */}
               <div className="flex gap-2 mb-6 flex-wrap">
                 <button onClick={addOptionGroup}
                   className="flex items-center gap-2 bg-orange-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-orange-600 transition">
@@ -806,12 +873,12 @@ export default function AdminFoods() {
                 </div>
               ) : optionGroups.length === 0 ? (
                 <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-2xl">
-                  <p className="text-4xl mb-3">📋</p>
+                  <Cog6ToothIcon className="w-12 h-12 text-gray-200 mx-auto mb-3" />
                   <p className="font-semibold text-gray-700 mb-1">Belum ada pilihan kondimen</p>
                   <p className="text-xs text-gray-400 mb-4">
                     {isCateringFood()
-                      ? 'Klik "Template Catering" untuk mengisi otomatis lauk, tumisan, sambal & add-on'
-                      : 'Klik "Tambah Grup" untuk menambahkan pilihan baru'
+                      ? 'Gunakan Template Catering untuk mengisi otomatis'
+                      : 'Klik Tambah Grup untuk menambahkan pilihan baru'
                     }
                   </p>
                   {isCateringFood() && (
@@ -825,7 +892,6 @@ export default function AdminFoods() {
                 <div className="space-y-5">
                   {optionGroups.map((group, gIdx) => (
                     <div key={group.id} className="border border-gray-200 rounded-2xl overflow-hidden">
-                      {/* Group Header */}
                       <div className="bg-gray-50 px-4 py-3 flex items-center gap-3">
                         <span className="w-6 h-6 bg-orange-500 text-white text-xs rounded-full flex items-center justify-center font-bold flex-shrink-0">
                           {gIdx + 1}
@@ -839,9 +905,7 @@ export default function AdminFoods() {
                           <TrashIcon className="w-4 h-4" />
                         </button>
                       </div>
-
                       <div className="p-4">
-                        {/* Settings */}
                         <div className="flex gap-4 mb-4">
                           <div className="flex-1">
                             <label className="text-xs text-gray-500 block mb-1">Tipe Pilihan</label>
@@ -861,17 +925,15 @@ export default function AdminFoods() {
                             </label>
                           </div>
                         </div>
-
-                        {/* Items */}
                         <div className="space-y-2 mb-3">
                           {(group.food_option_items || []).map(item => (
                             <div key={item.id} className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5">
-                              <div className={`w-4 h-4 rounded-full border-2 border-gray-300 flex-shrink-0 flex items-center justify-center ${group.group_type === 'single' ? 'rounded-full' : 'rounded'}`}>
+                              <div className="w-4 h-4 rounded-full border-2 border-gray-300 flex-shrink-0 flex items-center justify-center">
                                 <div className="w-1.5 h-1.5 rounded-full bg-gray-300" />
                               </div>
                               <input value={item.name}
                                 onChange={e => updateOptionItem(group.id, item.id, 'name', e.target.value)}
-                                placeholder="Nama pilihan (contoh: Ayam Goreng Lengkuas)"
+                                placeholder="Nama pilihan"
                                 className="flex-1 text-sm bg-transparent outline-none text-gray-800 placeholder-gray-400" />
                               <div className="flex items-center gap-1 flex-shrink-0">
                                 <span className="text-xs text-gray-400">+Rp</span>
@@ -888,7 +950,6 @@ export default function AdminFoods() {
                             </div>
                           ))}
                         </div>
-
                         <button onClick={() => addOptionItem(group.id)}
                           className="w-full flex items-center justify-center gap-2 border border-dashed border-orange-300 text-orange-500 py-2 rounded-xl text-xs font-medium hover:bg-orange-50 transition">
                           <PlusIcon className="w-3.5 h-3.5" />
@@ -900,7 +961,6 @@ export default function AdminFoods() {
                 </div>
               )}
 
-              {/* Simpan */}
               {optionGroups.length > 0 && (
                 <div className="mt-6 flex gap-3 sticky bottom-0 bg-white pt-4 pb-2">
                   <button onClick={() => setShowOptionsPanel(false)}
@@ -910,15 +970,9 @@ export default function AdminFoods() {
                   <button onClick={handleSaveOptions} disabled={savingOptions}
                     className="flex-1 bg-orange-500 text-white py-3 rounded-xl font-semibold text-sm hover:bg-orange-600 transition disabled:opacity-50 flex items-center justify-center gap-2">
                     {savingOptions ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Menyimpan...
-                      </>
+                      <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Menyimpan...</>
                     ) : (
-                      <>
-                        <CheckIcon className="w-4 h-4" />
-                        Simpan Semua Pilihan
-                      </>
+                      <><CheckIcon className="w-4 h-4" /> Simpan Semua Pilihan</>
                     )}
                   </button>
                 </div>
