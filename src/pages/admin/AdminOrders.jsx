@@ -3,38 +3,36 @@ import { supabase } from '../../lib/supabase'
 import AdminSidebar from '../../components/admin/AdminSidebar'
 import AdminNotifBell from '../../components/admin/AdminNotifBell'
 import {
-  ChevronDownIcon,
-  ArrowRightOnRectangleIcon,
-  EyeIcon,
-  EllipsisHorizontalIcon,
-  CalendarIcon,
-  FunnelIcon,
-  XMarkIcon,
+  ChevronDownIcon, ArrowRightOnRectangleIcon, EyeIcon,
+  EllipsisHorizontalIcon, CalendarIcon, FunnelIcon,
+  XMarkIcon, MagnifyingGlassIcon, TruckIcon
 } from '@heroicons/react/24/outline'
 import { useAuthStore } from '../../store/authStore'
 import { formatDateTime } from '../../lib/timeUtils'
 
 const statusConfig = {
-  pending: { label: 'Menunggu Konfirmasi', color: 'bg-yellow-100 text-yellow-700 border border-yellow-200' },
-  confirmed: { label: 'Dikonfirmasi', color: 'bg-blue-100 text-blue-700 border border-blue-200' },
-  processing: { label: 'Diproses', color: 'bg-orange-100 text-orange-600 border border-orange-200' },
-  delivered: { label: 'Dikirim', color: 'bg-green-100 text-green-700 border border-green-200' },
-  done: { label: 'Selesai', color: 'bg-gray-100 text-gray-600 border border-gray-200' },
-  cancelled: { label: 'Dibatalkan', color: 'bg-red-100 text-red-600 border border-red-200' },
+  pending:   { label: 'Menunggu Konfirmasi', color: 'bg-yellow-100 text-yellow-700 border border-yellow-200' },
+  confirmed: { label: 'Dikonfirmasi',        color: 'bg-blue-100 text-blue-700 border border-blue-200' },
+  processing:{ label: 'Diproses',            color: 'bg-orange-100 text-orange-600 border border-orange-200' },
+  delivered: { label: 'Dikirim',             color: 'bg-green-100 text-green-700 border border-green-200' },
+  done:      { label: 'Selesai',             color: 'bg-gray-100 text-gray-600 border border-gray-200' },
+  cancelled: { label: 'Dibatalkan',          color: 'bg-red-100 text-red-600 border border-red-200' },
 }
 
 const tabs = [
-  { key: 'all', label: 'Semua' },
-  { key: 'pending', label: 'Menunggu Konfirmasi' },
-  { key: 'processing', label: 'Diproses' },
+  { key: 'all',       label: 'Semua' },
+  { key: 'pending',   label: 'Menunggu Konfirmasi' },
+  { key: 'processing',label: 'Diproses' },
   { key: 'delivered', label: 'Dikirim' },
-  { key: 'done', label: 'Selesai' },
+  { key: 'done',      label: 'Selesai' },
   { key: 'cancelled', label: 'Dibatalkan' },
 ]
 
 export default function AdminOrders() {
   const { profile } = useAuthStore()
   const adminDropRef = useRef()
+  const filterRef = useRef()
+
   const [adminDropdown, setAdminDropdown] = useState(false)
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -45,14 +43,28 @@ export default function AdminOrders() {
   const [showDetail, setShowDetail] = useState(false)
   const [actionMenu, setActionMenu] = useState(null)
 
-  useEffect(() => {
-    fetchOrders()
-  }, [])
+  // Filter state
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [showFilterPanel, setShowFilterPanel] = useState(false)
+  const [tempDateFrom, setTempDateFrom] = useState('')
+  const [tempDateTo, setTempDateTo] = useState('')
+  const [filterSearch, setFilterSearch] = useState('')
+  const [filterMinTotal, setFilterMinTotal] = useState('')
+  const [filterMaxTotal, setFilterMaxTotal] = useState('')
+  const [activeFilters, setActiveFilters] = useState([])
+
+  useEffect(() => { fetchOrders() }, [])
 
   useEffect(() => {
     const handler = (e) => {
       if (adminDropRef.current && !adminDropRef.current.contains(e.target))
         setAdminDropdown(false)
+      if (filterRef.current && !filterRef.current.contains(e.target)) {
+        setShowDatePicker(false)
+        setShowFilterPanel(false)
+      }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -71,7 +83,7 @@ export default function AdminOrders() {
   const handleUpdateStatus = async (orderId, status) => {
     await supabase.from('orders').update({ status }).eq('id', orderId)
     setActionMenu(null)
-    if (selectedOrder?.id === orderId) setSelectedOrder((prev) => ({ ...prev, status }))
+    if (selectedOrder?.id === orderId) setSelectedOrder(prev => ({ ...prev, status }))
     await fetchOrders()
   }
 
@@ -80,13 +92,82 @@ export default function AdminOrders() {
     window.location.href = '/login'
   }
 
-  const filtered =
-    activeTab === 'all' ? orders : orders.filter((o) => o.status === activeTab)
+  const handleApplyDate = () => {
+    setDateFrom(tempDateFrom)
+    setDateTo(tempDateTo)
+    setShowDatePicker(false)
+    setPage(1)
+    const filters = []
+    if (tempDateFrom) filters.push(`Dari: ${new Date(tempDateFrom).toLocaleDateString('id-ID')}`)
+    if (tempDateTo) filters.push(`Sampai: ${new Date(tempDateTo).toLocaleDateString('id-ID')}`)
+    setActiveFilters(prev => {
+      const without = prev.filter(f => !f.startsWith('Dari:') && !f.startsWith('Sampai:'))
+      return [...without, ...filters]
+    })
+  }
+
+  const handleApplyFilter = () => {
+    setShowFilterPanel(false)
+    setPage(1)
+    const filters = []
+    if (filterSearch) filters.push(`Cari: "${filterSearch}"`)
+    if (filterMinTotal) filters.push(`Min: Rp ${Number(filterMinTotal).toLocaleString('id-ID')}`)
+    if (filterMaxTotal) filters.push(`Max: Rp ${Number(filterMaxTotal).toLocaleString('id-ID')}`)
+    setActiveFilters(prev => {
+      const dateFilters = prev.filter(f => f.startsWith('Dari:') || f.startsWith('Sampai:'))
+      return [...dateFilters, ...filters]
+    })
+  }
+
+  const handleResetAll = () => {
+    setDateFrom(''); setDateTo('')
+    setTempDateFrom(''); setTempDateTo('')
+    setFilterSearch(''); setFilterMinTotal(''); setFilterMaxTotal('')
+    setActiveFilters([])
+    setPage(1)
+  }
+
+  const removeFilter = (filter) => {
+    setActiveFilters(prev => prev.filter(f => f !== filter))
+    if (filter.startsWith('Dari:')) setDateFrom('')
+    if (filter.startsWith('Sampai:')) setDateTo('')
+    if (filter.startsWith('Cari:')) setFilterSearch('')
+    if (filter.startsWith('Min:')) setFilterMinTotal('')
+    if (filter.startsWith('Max:')) setFilterMaxTotal('')
+    setPage(1)
+  }
+
+  // Apply semua filter
+  const filtered = orders.filter(o => {
+    const matchTab = activeTab === 'all' || o.status === activeTab
+
+    const matchDate = (() => {
+      if (!dateFrom && !dateTo) return true
+      const orderDate = new Date(o.created_at)
+      if (dateFrom && orderDate < new Date(dateFrom)) return false
+      if (dateTo && orderDate > new Date(dateTo + 'T23:59:59')) return false
+      return true
+    })()
+
+    const matchSearch = !filterSearch ||
+      o.customer_name?.toLowerCase().includes(filterSearch.toLowerCase()) ||
+      o.customer_phone?.includes(filterSearch) ||
+      o.id.slice(0,8).toUpperCase().includes(filterSearch.toUpperCase())
+
+    const matchMin = !filterMinTotal || (o.total || 0) >= Number(filterMinTotal)
+    const matchMax = !filterMaxTotal || (o.total || 0) <= Number(filterMaxTotal)
+
+    return matchTab && matchDate && matchSearch && matchMin && matchMax
+  })
+
   const totalPages = Math.ceil(filtered.length / perPage)
   const paginated = filtered.slice((page - 1) * perPage, page * perPage)
-  const countByStatus = (key) =>
-    key === 'all' ? orders.length : orders.filter((o) => o.status === key).length
+  const countByStatus = (key) => key === 'all' ? orders.length : orders.filter(o => o.status === key).length
   const adminName = profile?.full_name || 'Admin'
+
+  const dateLabel = dateFrom || dateTo
+    ? `${dateFrom ? new Date(dateFrom).toLocaleDateString('id-ID') : '...'} — ${dateTo ? new Date(dateTo).toLocaleDateString('id-ID') : '...'}`
+    : 'Pilih Tanggal'
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -99,10 +180,8 @@ export default function AdminOrders() {
           <div className="ml-auto flex items-center gap-4">
             <AdminNotifBell />
             <div className="relative" ref={adminDropRef}>
-              <button
-                onClick={() => setAdminDropdown((prev) => !prev)}
-                className="flex items-center gap-3 pl-4 border-l border-gray-100 hover:bg-gray-50 px-3 py-2 rounded-xl transition"
-              >
+              <button onClick={() => setAdminDropdown(prev => !prev)}
+                className="flex items-center gap-3 pl-4 border-l border-gray-100 hover:bg-gray-50 px-3 py-2 rounded-xl transition">
                 <div className="w-9 h-9 bg-orange-100 rounded-full flex items-center justify-center font-bold text-orange-500 text-sm">
                   {adminName[0].toUpperCase()}
                 </div>
@@ -110,16 +189,12 @@ export default function AdminOrders() {
                   <p className="text-sm font-semibold text-gray-800">{adminName.split(' ')[0]}</p>
                   <p className="text-xs text-gray-400">Super Administrator</p>
                 </div>
-                <ChevronDownIcon
-                  className={`w-4 h-4 text-gray-400 transition-transform ${adminDropdown ? 'rotate-180' : ''}`}
-                />
+                <ChevronDownIcon className={`w-4 h-4 text-gray-400 transition-transform ${adminDropdown ? 'rotate-180' : ''}`} />
               </button>
               {adminDropdown && (
                 <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50">
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-red-50 hover:text-red-500 transition w-full text-left"
-                  >
+                  <button onClick={handleLogout}
+                    className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-red-50 hover:text-red-500 transition w-full text-left">
                     <ArrowRightOnRectangleIcon className="w-5 h-5" />
                     Logout
                   </button>
@@ -132,41 +207,199 @@ export default function AdminOrders() {
         <main className="p-8">
           <div className="flex justify-between items-start mb-6">
             <div>
-              <h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: 'Playfair Display, serif' }}>
-                Daftar Pesanan
-              </h1>
+              <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Daftar Pesanan</h1>
               <p className="text-gray-400 text-sm mt-1">Kelola semua pesanan yang masuk dari pelanggan.</p>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 border border-gray-200 bg-white rounded-xl px-4 py-2.5 text-sm text-gray-500">
-                <CalendarIcon className="w-4 h-4" />
-                <span>Pilih Tanggal</span>
+
+            {/* Filter Controls */}
+            <div className="flex items-center gap-2" ref={filterRef}>
+
+              {/* Date Picker */}
+              <div className="relative">
+                <button
+                  onClick={() => { setShowDatePicker(p => !p); setShowFilterPanel(false) }}
+                  className={`flex items-center gap-2 border rounded-xl px-4 py-2.5 text-sm transition ${
+                    dateFrom || dateTo
+                      ? 'border-orange-400 bg-orange-50 text-orange-600'
+                      : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                  }`}>
+                  <CalendarIcon className="w-4 h-4" />
+                  <span>{dateLabel}</span>
+                  {(dateFrom || dateTo) && (
+                    <button onClick={(e) => { e.stopPropagation(); setDateFrom(''); setDateTo(''); setTempDateFrom(''); setTempDateTo(''); setPage(1); setActiveFilters(prev => prev.filter(f => !f.startsWith('Dari:') && !f.startsWith('Sampai:'))) }}
+                      className="ml-1 hover:text-red-500">
+                      <XMarkIcon className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </button>
+
+                {showDatePicker && (
+                  <div className="absolute right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 p-5 z-50 w-72">
+                    <h3 className="font-bold text-gray-800 text-sm mb-4">Filter Tanggal</h3>
+                    <div className="space-y-3 mb-4">
+                      <div>
+                        <label className="text-xs text-gray-500 block mb-1">Dari Tanggal</label>
+                        <input type="date" value={tempDateFrom}
+                          onChange={e => setTempDateFrom(e.target.value)}
+                          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-400 transition" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 block mb-1">Sampai Tanggal</label>
+                        <input type="date" value={tempDateTo}
+                          onChange={e => setTempDateTo(e.target.value)}
+                          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-400 transition" />
+                      </div>
+                    </div>
+
+                    {/* Quick select */}
+                    <div className="flex gap-2 mb-4 flex-wrap">
+                      {[
+                        { label: 'Hari Ini', fn: () => {
+                          const d = new Date().toISOString().slice(0,10)
+                          setTempDateFrom(d); setTempDateTo(d)
+                        }},
+                        { label: 'Minggu Ini', fn: () => {
+                          const now = new Date()
+                          const day = now.getDay()
+                          const from = new Date(now); from.setDate(now.getDate() - day)
+                          const to = new Date(from); to.setDate(from.getDate() + 6)
+                          setTempDateFrom(from.toISOString().slice(0,10))
+                          setTempDateTo(to.toISOString().slice(0,10))
+                        }},
+                        { label: 'Bulan Ini', fn: () => {
+                          const now = new Date()
+                          const from = new Date(now.getFullYear(), now.getMonth(), 1)
+                          const to = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+                          setTempDateFrom(from.toISOString().slice(0,10))
+                          setTempDateTo(to.toISOString().slice(0,10))
+                        }},
+                      ].map(q => (
+                        <button key={q.label} onClick={q.fn}
+                          className="text-xs border border-gray-200 px-3 py-1.5 rounded-lg hover:border-orange-400 hover:text-orange-500 transition">
+                          {q.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button onClick={() => { setTempDateFrom(''); setTempDateTo('') }}
+                        className="flex-1 border border-gray-200 text-gray-500 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
+                        Reset
+                      </button>
+                      <button onClick={handleApplyDate}
+                        className="flex-1 bg-orange-500 text-white py-2 rounded-xl text-sm font-semibold hover:bg-orange-600 transition">
+                        Terapkan
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-              <button className="flex items-center gap-2 border border-gray-200 bg-white rounded-xl px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition">
-                <FunnelIcon className="w-4 h-4" />
-                Filter
-              </button>
+
+              {/* Filter Panel */}
+              <div className="relative">
+                <button
+                  onClick={() => { setShowFilterPanel(p => !p); setShowDatePicker(false) }}
+                  className={`flex items-center gap-2 border rounded-xl px-4 py-2.5 text-sm transition ${
+                    filterSearch || filterMinTotal || filterMaxTotal
+                      ? 'border-orange-400 bg-orange-50 text-orange-600'
+                      : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                  }`}>
+                  <FunnelIcon className="w-4 h-4" />
+                  Filter
+                  {(filterSearch || filterMinTotal || filterMaxTotal) && (
+                    <span className="bg-orange-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                      {[filterSearch, filterMinTotal, filterMaxTotal].filter(Boolean).length}
+                    </span>
+                  )}
+                </button>
+
+                {showFilterPanel && (
+                  <div className="absolute right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 p-5 z-50 w-72">
+                    <h3 className="font-bold text-gray-800 text-sm mb-4">Filter Pesanan</h3>
+                    <div className="space-y-4">
+
+                      {/* Search */}
+                      <div>
+                        <label className="text-xs text-gray-500 block mb-1">Cari Pelanggan / ID</label>
+                        <div className="relative">
+                          <MagnifyingGlassIcon className="w-4 h-4 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input value={filterSearch} onChange={e => setFilterSearch(e.target.value)}
+                            placeholder="Nama, nomor HP, atau ID..."
+                            className="w-full border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-sm outline-none focus:border-orange-400 transition" />
+                        </div>
+                      </div>
+
+                      {/* Total range */}
+                      <div>
+                        <label className="text-xs text-gray-500 block mb-1">Total Pesanan (Rp)</label>
+                        <div className="flex gap-2">
+                          <input type="number" value={filterMinTotal}
+                            onChange={e => setFilterMinTotal(e.target.value)}
+                            placeholder="Min"
+                            className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-400 transition" />
+                          <input type="number" value={filterMaxTotal}
+                            onChange={e => setFilterMaxTotal(e.target.value)}
+                            placeholder="Max"
+                            className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-400 transition" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 mt-5">
+                      <button onClick={() => { setFilterSearch(''); setFilterMinTotal(''); setFilterMaxTotal('') }}
+                        className="flex-1 border border-gray-200 text-gray-500 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
+                        Reset
+                      </button>
+                      <button onClick={handleApplyFilter}
+                        className="flex-1 bg-orange-500 text-white py-2 rounded-xl text-sm font-semibold hover:bg-orange-600 transition">
+                        Terapkan
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Reset all */}
+              {activeFilters.length > 0 && (
+                <button onClick={handleResetAll}
+                  className="text-sm text-red-400 hover:text-red-600 font-medium transition">
+                  Reset Semua
+                </button>
+              )}
             </div>
           </div>
 
+          {/* Active Filter Chips */}
+          {activeFilters.length > 0 && (
+            <div className="flex gap-2 flex-wrap mb-4">
+              {activeFilters.map(f => (
+                <div key={f} className="flex items-center gap-1.5 bg-orange-50 border border-orange-200 text-orange-600 text-xs px-3 py-1.5 rounded-full font-medium">
+                  {f}
+                  <button onClick={() => removeFilter(f)} className="hover:text-red-500 transition">
+                    <XMarkIcon className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+              <p className="text-xs text-gray-400 self-center">
+                {filtered.length} pesanan ditemukan
+              </p>
+            </div>
+          )}
+
           {/* Status Tabs */}
           <div className="flex gap-2 mb-6 flex-wrap">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
+            {tabs.map(tab => (
+              <button key={tab.key}
                 onClick={() => { setActiveTab(tab.key); setPage(1) }}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition border ${
                   activeTab === tab.key
                     ? 'bg-orange-500 text-white border-orange-500'
                     : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
-                }`}
-              >
+                }`}>
                 {tab.label}
-                <span
-                  className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                    activeTab === tab.key ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
-                  }`}
-                >
+                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                  activeTab === tab.key ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+                }`}>
                   {countByStatus(tab.key)}
                 </span>
               </button>
@@ -199,19 +432,20 @@ export default function AdminOrders() {
                 ) : paginated.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="text-center py-16 text-gray-400">
-                      <p className="text-3xl mb-2">📋</p>
-                      <p>Tidak ada pesanan</p>
+                      <FunnelIcon className="w-10 h-10 text-gray-200 mx-auto mb-2" />
+                      <p className="font-medium text-gray-500">Tidak ada pesanan ditemukan</p>
+                      <p className="text-sm mt-1">Coba ubah filter atau tanggal</p>
                     </td>
                   </tr>
                 ) : (
-                  paginated.map((order) => {
+                  paginated.map(order => {
                     const { date, time } = formatDateTime(order.created_at)
                     const status = statusConfig[order.status] || statusConfig.pending
                     return (
                       <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
                         <td className="px-6 py-4">
                           <p className="font-bold text-gray-800 text-sm">
-                            #ORD-{order.id.slice(0, 8).toUpperCase()}
+                            #ORD-{order.id.slice(0,8).toUpperCase()}
                           </p>
                         </td>
                         <td className="px-4 py-4">
@@ -224,7 +458,9 @@ export default function AdminOrders() {
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-2">
-                            <span className="text-lg">🚚</span>
+                            <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <TruckIcon className="w-4 h-4 text-orange-400" />
+                            </div>
                             <div>
                               <p className="text-sm text-gray-800">Diantar ke Alamat</p>
                               <p className="text-xs text-gray-400 max-w-[160px] truncate">
@@ -247,44 +483,34 @@ export default function AdminOrders() {
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => { setSelectedOrder(order); setShowDetail(true) }}
-                              className="w-8 h-8 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-orange-50 hover:border-orange-300 hover:text-orange-500 transition"
-                            >
+                              className="w-8 h-8 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-orange-50 hover:border-orange-300 hover:text-orange-500 transition">
                               <EyeIcon className="w-4 h-4" />
                             </button>
                             <div className="relative">
                               <button
                                 onClick={() => setActionMenu(actionMenu === order.id ? null : order.id)}
-                                className="w-8 h-8 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50 transition"
-                              >
+                                className="w-8 h-8 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50 transition">
                                 <EllipsisHorizontalIcon className="w-4 h-4" />
                               </button>
                               {actionMenu === order.id && (
                                 <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-20">
-                                  <p className="text-xs text-gray-400 font-semibold px-4 pt-3 pb-1">
-                                    Ubah Status
-                                  </p>
+                                  <p className="text-xs text-gray-400 font-semibold px-4 pt-3 pb-1">Ubah Status</p>
                                   {Object.entries(statusConfig).map(([key, val]) => (
-                                    <button
-                                      key={key}
+                                    <button key={key}
                                       onClick={() => handleUpdateStatus(order.id, key)}
                                       className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition flex items-center gap-2 ${
                                         order.status === key ? 'text-orange-500 font-medium' : 'text-gray-700'
-                                      }`}
-                                    >
-                                      <span
-                                        className={`w-2 h-2 rounded-full ${
-                                          key === 'pending' ? 'bg-yellow-400'
-                                          : key === 'processing' ? 'bg-orange-400'
-                                          : key === 'delivered' ? 'bg-green-400'
-                                          : key === 'done' ? 'bg-gray-400'
-                                          : key === 'cancelled' ? 'bg-red-400'
-                                          : 'bg-blue-400'
-                                        }`}
-                                      />
+                                      }`}>
+                                      <span className={`w-2 h-2 rounded-full ${
+                                        key === 'pending'   ? 'bg-yellow-400'
+                                        : key === 'confirmed' ? 'bg-blue-400'
+                                        : key === 'processing'? 'bg-orange-400'
+                                        : key === 'delivered' ? 'bg-green-400'
+                                        : key === 'done'      ? 'bg-gray-400'
+                                        : 'bg-red-400'
+                                      }`} />
                                       {val.label}
-                                      {order.status === key && (
-                                        <span className="ml-auto text-xs">✓</span>
-                                      )}
+                                      {order.status === key && <span className="ml-auto text-xs">✓</span>}
                                     </button>
                                   ))}
                                 </div>
@@ -302,53 +528,38 @@ export default function AdminOrders() {
             {/* Pagination */}
             <div className="flex items-center justify-between px-6 py-4 border-t border-gray-50">
               <p className="text-sm text-gray-400">
-                Menampilkan {filtered.length === 0 ? 0 : (page - 1) * perPage + 1} -{' '}
-                {Math.min(page * perPage, filtered.length)} dari {filtered.length} pesanan
+                Menampilkan {filtered.length === 0 ? 0 : (page-1)*perPage+1} - {Math.min(page*perPage, filtered.length)} dari {filtered.length} pesanan
               </p>
               <div className="flex items-center gap-3">
                 <div className="flex gap-1">
-                  <button
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-sm hover:bg-gray-50 disabled:opacity-40 transition"
-                  >
+                  <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page===1}
+                    className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-sm hover:bg-gray-50 disabled:opacity-40 transition">
                     ‹
                   </button>
                   {[...Array(Math.min(totalPages, 5))].map((_, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setPage(i + 1)}
+                    <button key={i} onClick={() => setPage(i+1)}
                       className={`w-8 h-8 rounded-lg text-sm font-medium transition ${
-                        page === i + 1 ? 'bg-orange-500 text-white' : 'border border-gray-200 hover:bg-gray-50'
-                      }`}
-                    >
-                      {i + 1}
+                        page===i+1 ? 'bg-orange-500 text-white' : 'border border-gray-200 hover:bg-gray-50'
+                      }`}>
+                      {i+1}
                     </button>
                   ))}
                   {totalPages > 5 && <span className="text-gray-400 text-sm px-1">...</span>}
                   {totalPages > 5 && (
-                    <button
-                      onClick={() => setPage(totalPages)}
-                      className="w-8 h-8 rounded-lg text-sm font-medium transition border border-gray-200 hover:bg-gray-50"
-                    >
+                    <button onClick={() => setPage(totalPages)}
+                      className="w-8 h-8 rounded-lg text-sm border border-gray-200 hover:bg-gray-50">
                       {totalPages}
                     </button>
                   )}
-                  <button
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages || totalPages === 0}
-                    className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-sm hover:bg-gray-50 disabled:opacity-40 transition"
-                  >
+                  <button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page>=totalPages || totalPages===0}
+                    className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-sm hover:bg-gray-50 disabled:opacity-40 transition">
                     ›
                   </button>
                 </div>
                 <div className="flex items-center gap-2 ml-4">
                   <span className="text-sm text-gray-400">Tampilkan</span>
-                  <select
-                    value={perPage}
-                    onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1) }}
-                    className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm outline-none"
-                  >
+                  <select value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(1) }}
+                    className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm outline-none">
                     <option value={8}>8</option>
                     <option value={10}>10</option>
                     <option value={20}>20</option>
@@ -370,14 +581,10 @@ export default function AdminOrders() {
             <div className="flex justify-between items-center px-6 py-5 border-b border-gray-100 sticky top-0 bg-white z-10">
               <div>
                 <h2 className="font-bold text-gray-900">Detail Pesanan</h2>
-                <p className="text-xs text-gray-400">
-                  #ORD-{selectedOrder.id.slice(0, 8).toUpperCase()}
-                </p>
+                <p className="text-xs text-gray-400">#ORD-{selectedOrder.id.slice(0,8).toUpperCase()}</p>
               </div>
-              <button
-                onClick={() => setShowDetail(false)}
-                className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center"
-              >
+              <button onClick={() => setShowDetail(false)}
+                className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center">
                 <XMarkIcon className="w-5 h-5 text-gray-500" />
               </button>
             </div>
@@ -387,8 +594,7 @@ export default function AdminOrders() {
                   {statusConfig[selectedOrder.status]?.label}
                 </span>
                 <p className="text-xs text-gray-400">
-                  {formatDateTime(selectedOrder.created_at).date} •{' '}
-                  {formatDateTime(selectedOrder.created_at).time}
+                  {formatDateTime(selectedOrder.created_at).date} • {formatDateTime(selectedOrder.created_at).time}
                 </p>
               </div>
 
@@ -403,9 +609,7 @@ export default function AdminOrders() {
                   ].map((item, i) => (
                     <div key={i} className="flex justify-between text-sm">
                       <span className="text-gray-400">{item.label}</span>
-                      <span className="font-medium text-gray-800 text-right max-w-[200px]">
-                        {item.value || '-'}
-                      </span>
+                      <span className="font-medium text-gray-800 text-right max-w-[200px]">{item.value || '-'}</span>
                     </div>
                   ))}
                 </div>
@@ -417,11 +621,10 @@ export default function AdminOrders() {
                   {selectedOrder.order_items?.map((item, i) => (
                     <div key={i} className="flex items-center gap-3">
                       <div className="w-12 h-12 bg-orange-50 rounded-xl overflow-hidden flex-shrink-0">
-                        {item.foods?.image ? (
-                          <img src={item.foods.image} alt={item.foods?.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-2xl">🍽️</div>
-                        )}
+                        {item.foods?.image
+                          ? <img src={item.foods.image} alt={item.foods?.name} className="w-full h-full object-cover" />
+                          : <div className="w-full h-full flex items-center justify-center text-2xl">🍽️</div>
+                        }
                       </div>
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-800">{item.foods?.name || 'Menu'}</p>
@@ -437,24 +640,20 @@ export default function AdminOrders() {
 
               <div className="border-t border-gray-100 pt-4 flex justify-between font-bold text-lg">
                 <span>Total</span>
-                <span className="text-orange-500">
-                  Rp {selectedOrder.total?.toLocaleString('id-ID')}
-                </span>
+                <span className="text-orange-500">Rp {selectedOrder.total?.toLocaleString('id-ID')}</span>
               </div>
 
               <div>
                 <h3 className="font-semibold text-gray-800 text-sm mb-3">Update Status</h3>
                 <div className="grid grid-cols-2 gap-2">
                   {Object.entries(statusConfig).map(([key, val]) => (
-                    <button
-                      key={key}
+                    <button key={key}
                       onClick={() => handleUpdateStatus(selectedOrder.id, key)}
                       className={`py-2.5 px-3 rounded-xl text-xs font-medium transition border ${
                         selectedOrder.status === key
                           ? 'bg-orange-500 text-white border-orange-500'
                           : 'border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-500'
-                      }`}
-                    >
+                      }`}>
                       {val.label}
                     </button>
                   ))}
