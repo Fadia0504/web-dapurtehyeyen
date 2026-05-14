@@ -1,116 +1,195 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { LockClosedIcon, UserIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
+import { useAuthStore } from '../store/authStore'
+import Swal from 'sweetalert2'
+import { EyeIcon, EyeSlashIcon, EnvelopeIcon, LockClosedIcon } from '@heroicons/react/24/outline'
 
 export default function Login() {
   const navigate = useNavigate()
-  const [form, setForm] = useState({ email: '', password: '' })
+  const fetchProfile = useAuthStore(state => state.fetchProfile)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value })
+  const handleLogin = async (e) => {
+    e.preventDefault()
+    if (!email || !password) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Form Tidak Lengkap',
+        text: 'Harap isi email dan password terlebih dahulu.',
+        confirmButtonColor: '#f97316',
+        confirmButtonText: 'OK',
+        borderRadius: '16px',
+      })
+      return
+    }
 
-  const handleLogin = async () => {
-    setError('')
-    if (!form.email || !form.password) { setError('Email dan password wajib diisi!'); return }
     setLoading(true)
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: form.email, password: form.password
-    })
+      if (error) {
+        let title = 'Login Gagal'
+        let text = 'Terjadi kesalahan. Silakan coba lagi.'
 
-    if (error) { setError('Email atau password salah!'); setLoading(false); return }
+        if (error.message.includes('Invalid login credentials')) {
+          title = 'Email atau Password Salah'
+          text = 'Pastikan email dan password yang kamu masukkan sudah benar.'
+        } else if (error.message.includes('Email not confirmed')) {
+          title = 'Email Belum Dikonfirmasi'
+          text = 'Silakan cek email kamu dan klik link konfirmasi terlebih dahulu.'
+        } else if (error.message.includes('Too many requests')) {
+          title = 'Terlalu Banyak Percobaan'
+          text = 'Akun sementara dikunci. Coba lagi beberapa menit kemudian.'
+        }
 
-    const { data: { user } } = await supabase.auth.getUser()
-    const { data: profile } = await supabase
-      .from('profiles').select('role').eq('id', user.id).single()
+        Swal.fire({
+          icon: 'error',
+          title,
+          text,
+          confirmButtonColor: '#f97316',
+          confirmButtonText: 'Coba Lagi',
+          customClass: { popup: 'rounded-2xl' },
+        })
+        return
+      }
 
-    setLoading(false)
+      if (data.user) {
+        await fetchProfile(data.user.id)
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', data.user.id)
+          .single()
 
-    if (profile?.role === 'admin') {
-      navigate('/admin')
-    } else {
-      navigate('/')
+        const isAdmin = profileData?.role === 'admin'
+
+        await Swal.fire({
+          icon: 'success',
+          title: `Selamat datang! 👋`,
+          text: isAdmin
+            ? 'Kamu berhasil masuk sebagai Admin.'
+            : 'Kamu berhasil masuk. Selamat menikmati!',
+          confirmButtonColor: '#f97316',
+          confirmButtonText: 'Lanjutkan',
+          timer: 2000,
+          timerProgressBar: true,
+          showConfirmButton: false,
+          customClass: { popup: 'rounded-2xl' },
+        })
+
+        navigate(isAdmin ? '/admin' : '/')
+      }
+    } catch (err) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Terjadi Kesalahan',
+        text: err.message || 'Silakan coba beberapa saat lagi.',
+        confirmButtonColor: '#f97316',
+        confirmButtonText: 'OK',
+        customClass: { popup: 'rounded-2xl' },
+      })
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-orange-50/50 flex items-center justify-center px-4 relative overflow-hidden">
-      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-48 opacity-20 pointer-events-none">
-        <div className="w-48 h-48 bg-orange-200 rounded-full -translate-x-1/2" />
-      </div>
-      <div className="absolute right-0 bottom-10 w-32 opacity-20 pointer-events-none">
-        <div className="w-32 h-32 bg-orange-300 rounded-full translate-x-1/2" />
-      </div>
-
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <div className="flex justify-between items-center mb-6">
-          <Link to="/" className="flex items-center gap-2">
+
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <Link to="/" className="inline-flex items-center gap-3 mb-4">
             <img
               src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/rawr.png"
-              alt="Logo" className="h-8 w-auto"
+              alt="Logo" className="h-12 w-auto"
             />
-            <span className="font-black text-orange-500 text-lg">Dapur Teh Yeyen</span>
+            <span className="font-black text-orange-500 text-2xl">Dapur Teh Yeyen</span>
           </Link>
-          <Link to="/" className="text-sm text-orange-500 hover:underline">← Kembali ke Beranda</Link>
+          <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Masuk ke Akun</h1>
+          <p className="text-gray-400 text-sm mt-1">Masukkan email dan password kamu</p>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-sm p-8">
-          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <LockClosedIcon className="w-8 h-8 text-orange-500" />
-          </div>
+        {/* Form Card */}
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
+          <form onSubmit={handleLogin} className="space-y-5">
 
-          <h1 className="text-2xl font-black text-gray-900 text-center mb-2" style={{fontFamily:'Playfair Display, serif'}}>
-            Selamat Datang Kembali!
-          </h1>
-          <p className="text-gray-400 text-sm text-center mb-8">
-            Login untuk melanjutkan dan menikmati berbagai pilihan makanan lezat.
-          </p>
-
-          {error && <p className="bg-red-50 text-red-500 text-sm px-4 py-3 rounded-xl mb-4">{error}</p>}
-
-          <div className="space-y-4">
+            {/* Email */}
             <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">Email</label>
+              <label className="text-sm font-semibold text-gray-700 block mb-2">Email</label>
               <div className="relative">
-                <UserIcon className="w-5 h-5 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input name="email" value={form.email} onChange={handleChange}
-                  placeholder="Masukkan email"
-                  className="w-full border border-gray-200 rounded-xl pl-10 pr-4 py-3 text-sm outline-none focus:border-orange-400 transition" />
+                <EnvelopeIcon className="w-5 h-5 text-gray-300 absolute left-4 top-1/2 -translate-y-1/2" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="nama@email.com"
+                  className="w-full border border-gray-200 rounded-2xl pl-12 pr-4 py-3.5 text-sm outline-none focus:border-orange-400 transition"
+                />
               </div>
             </div>
 
+            {/* Password */}
             <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">Password</label>
+              <label className="text-sm font-semibold text-gray-700 block mb-2">Password</label>
               <div className="relative">
-                <LockClosedIcon className="w-5 h-5 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input name="password" type={showPass ? 'text' : 'password'}
-                  value={form.password} onChange={handleChange}
+                <LockClosedIcon className="w-5 h-5 text-gray-300 absolute left-4 top-1/2 -translate-y-1/2" />
+                <input
+                  type={showPass ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
                   placeholder="Masukkan password"
-                  className="w-full border border-gray-200 rounded-xl pl-10 pr-10 py-3 text-sm outline-none focus:border-orange-400 transition" />
+                  className="w-full border border-gray-200 rounded-2xl pl-12 pr-12 py-3.5 text-sm outline-none focus:border-orange-400 transition"
+                />
                 <button type="button" onClick={() => setShowPass(!showPass)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
-                  {showPass ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition">
+                  {showPass
+                    ? <EyeSlashIcon className="w-5 h-5" />
+                    : <EyeIcon className="w-5 h-5" />
+                  }
                 </button>
               </div>
-              <div className="text-right mt-1">
-                <button className="text-orange-500 text-sm hover:underline">Lupa password?</button>
+              <div className="flex justify-end mt-2">
+                <Link to="/forgot-password" className="text-xs text-orange-500 hover:underline font-medium">
+                  Lupa password?
+                </Link>
               </div>
             </div>
 
-            <button onClick={handleLogin} disabled={loading}
-              className="w-full bg-orange-500 text-white py-3 rounded-xl font-semibold hover:bg-orange-600 transition disabled:opacity-50">
-              {loading ? 'Memproses...' : 'Login'}
+            {/* Submit */}
+            <button type="submit" disabled={loading}
+              className="w-full bg-orange-500 text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-orange-600 transition disabled:opacity-50 flex items-center justify-center gap-2 mt-2">
+              {loading
+                ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Memproses...</>
+                : 'Masuk'
+              }
             </button>
+          </form>
+
+          {/* Divider */}
+          <div className="flex items-center gap-4 my-6">
+            <div className="flex-1 h-px bg-gray-100" />
+            <span className="text-xs text-gray-400">atau</span>
+            <div className="flex-1 h-px bg-gray-100" />
           </div>
 
-          <p className="text-center text-sm text-gray-400 mt-6">
+          {/* Register link */}
+          <p className="text-center text-sm text-gray-500">
             Belum punya akun?{' '}
-            <Link to="/register" className="text-orange-500 font-semibold hover:underline">Daftar sekarang</Link>
+            <Link to="/register" className="text-orange-500 font-semibold hover:underline">
+              Daftar gratis
+            </Link>
           </p>
         </div>
+
+        {/* Back home */}
+        <p className="text-center mt-6 text-sm text-gray-400">
+          <Link to="/" className="hover:text-orange-500 transition">← Kembali ke Beranda</Link>
+        </p>
       </div>
     </div>
   )
