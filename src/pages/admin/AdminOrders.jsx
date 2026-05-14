@@ -11,26 +11,35 @@ import { useAuthStore } from '../../store/authStore'
 import { formatDateTime } from '../../lib/timeUtils'
 
 const statusConfig = {
-  pending:   { label: 'Menunggu Konfirmasi', color: 'bg-yellow-100 text-yellow-700 border border-yellow-200' },
-  confirmed: { label: 'Dikonfirmasi',        color: 'bg-blue-100 text-blue-700 border border-blue-200' },
-  processing:{ label: 'Diproses',            color: 'bg-orange-100 text-orange-600 border border-orange-200' },
-  delivered: { label: 'Dikirim',             color: 'bg-green-100 text-green-700 border border-green-200' },
-  done:      { label: 'Selesai',             color: 'bg-gray-100 text-gray-600 border border-gray-200' },
-  cancelled: { label: 'Dibatalkan',          color: 'bg-red-100 text-red-600 border border-red-200' },
+  pending:    { label: 'Menunggu Konfirmasi', color: 'bg-yellow-100 text-yellow-700 border border-yellow-200' },
+  confirmed:  { label: 'Dikonfirmasi',        color: 'bg-blue-100 text-blue-700 border border-blue-200' },
+  processing: { label: 'Diproses',            color: 'bg-orange-100 text-orange-600 border border-orange-200' },
+  delivered:  { label: 'Dikirim',             color: 'bg-green-100 text-green-700 border border-green-200' },
+  done:       { label: 'Selesai',             color: 'bg-gray-100 text-gray-600 border border-gray-200' },
+  cancelled:  { label: 'Dibatalkan',          color: 'bg-red-100 text-red-600 border border-red-200' },
 }
 
 const tabs = [
-  { key: 'all',       label: 'Semua' },
-  { key: 'pending',   label: 'Menunggu Konfirmasi' },
-  { key: 'processing',label: 'Diproses' },
-  { key: 'delivered', label: 'Dikirim' },
-  { key: 'done',      label: 'Selesai' },
-  { key: 'cancelled', label: 'Dibatalkan' },
+  { key: 'all',        label: 'Semua' },
+  { key: 'pending',    label: 'Menunggu Konfirmasi' },
+  { key: 'processing', label: 'Diproses' },
+  { key: 'delivered',  label: 'Dikirim' },
+  { key: 'done',       label: 'Selesai' },
+  { key: 'cancelled',  label: 'Dibatalkan' },
 ]
+
+// Convert UTC date ke WIB date string YYYY-MM-DD
+function toWIBDateStr(utcStr) {
+  const d = new Date(utcStr)
+  // WIB = UTC+7
+  const wib = new Date(d.getTime() + 7 * 60 * 60 * 1000)
+  return wib.toISOString().slice(0, 10)
+}
 
 export default function AdminOrders() {
   const { profile } = useAuthStore()
   const adminDropRef = useRef()
+  const dateRef = useRef()
   const filterRef = useRef()
 
   const [adminDropdown, setAdminDropdown] = useState(false)
@@ -43,17 +52,21 @@ export default function AdminOrders() {
   const [showDetail, setShowDetail] = useState(false)
   const [actionMenu, setActionMenu] = useState(null)
 
-  // Filter state
+  // Date filter
+  const [showDatePicker, setShowDatePicker] = useState(false)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [showDatePicker, setShowDatePicker] = useState(false)
-  const [showFilterPanel, setShowFilterPanel] = useState(false)
   const [tempDateFrom, setTempDateFrom] = useState('')
   const [tempDateTo, setTempDateTo] = useState('')
+
+  // Other filters
+  const [showFilterPanel, setShowFilterPanel] = useState(false)
   const [filterSearch, setFilterSearch] = useState('')
   const [filterMinTotal, setFilterMinTotal] = useState('')
   const [filterMaxTotal, setFilterMaxTotal] = useState('')
-  const [activeFilters, setActiveFilters] = useState([])
+  const [tempSearch, setTempSearch] = useState('')
+  const [tempMin, setTempMin] = useState('')
+  const [tempMax, setTempMax] = useState('')
 
   useEffect(() => { fetchOrders() }, [])
 
@@ -61,10 +74,10 @@ export default function AdminOrders() {
     const handler = (e) => {
       if (adminDropRef.current && !adminDropRef.current.contains(e.target))
         setAdminDropdown(false)
-      if (filterRef.current && !filterRef.current.contains(e.target)) {
+      if (dateRef.current && !dateRef.current.contains(e.target))
         setShowDatePicker(false)
+      if (filterRef.current && !filterRef.current.contains(e.target))
         setShowFilterPanel(false)
-      }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -97,62 +110,54 @@ export default function AdminOrders() {
     setDateTo(tempDateTo)
     setShowDatePicker(false)
     setPage(1)
-    const filters = []
-    if (tempDateFrom) filters.push(`Dari: ${new Date(tempDateFrom).toLocaleDateString('id-ID')}`)
-    if (tempDateTo) filters.push(`Sampai: ${new Date(tempDateTo).toLocaleDateString('id-ID')}`)
-    setActiveFilters(prev => {
-      const without = prev.filter(f => !f.startsWith('Dari:') && !f.startsWith('Sampai:'))
-      return [...without, ...filters]
-    })
+  }
+
+  const handleResetDate = () => {
+    setDateFrom(''); setDateTo('')
+    setTempDateFrom(''); setTempDateTo('')
+    setPage(1)
   }
 
   const handleApplyFilter = () => {
+    setFilterSearch(tempSearch)
+    setFilterMinTotal(tempMin)
+    setFilterMaxTotal(tempMax)
     setShowFilterPanel(false)
     setPage(1)
-    const filters = []
-    if (filterSearch) filters.push(`Cari: "${filterSearch}"`)
-    if (filterMinTotal) filters.push(`Min: Rp ${Number(filterMinTotal).toLocaleString('id-ID')}`)
-    if (filterMaxTotal) filters.push(`Max: Rp ${Number(filterMaxTotal).toLocaleString('id-ID')}`)
-    setActiveFilters(prev => {
-      const dateFilters = prev.filter(f => f.startsWith('Dari:') || f.startsWith('Sampai:'))
-      return [...dateFilters, ...filters]
-    })
+  }
+
+  const handleResetFilter = () => {
+    setTempSearch(''); setTempMin(''); setTempMax('')
+    setFilterSearch(''); setFilterMinTotal(''); setFilterMaxTotal('')
+    setPage(1)
   }
 
   const handleResetAll = () => {
-    setDateFrom(''); setDateTo('')
-    setTempDateFrom(''); setTempDateTo('')
-    setFilterSearch(''); setFilterMinTotal(''); setFilterMaxTotal('')
-    setActiveFilters([])
-    setPage(1)
+    handleResetDate()
+    handleResetFilter()
   }
 
-  const removeFilter = (filter) => {
-    setActiveFilters(prev => prev.filter(f => f !== filter))
-    if (filter.startsWith('Dari:')) setDateFrom('')
-    if (filter.startsWith('Sampai:')) setDateTo('')
-    if (filter.startsWith('Cari:')) setFilterSearch('')
-    if (filter.startsWith('Min:')) setFilterMinTotal('')
-    if (filter.startsWith('Max:')) setFilterMaxTotal('')
-    setPage(1)
+  const setQuickDate = (from, to) => {
+    setTempDateFrom(from)
+    setTempDateTo(to)
   }
 
-  // Apply semua filter
+  // Filter logic — date comparison pakai WIB
   const filtered = orders.filter(o => {
     const matchTab = activeTab === 'all' || o.status === activeTab
 
     const matchDate = (() => {
       if (!dateFrom && !dateTo) return true
-      const orderDate = new Date(o.created_at)
-      if (dateFrom && orderDate < new Date(dateFrom)) return false
-      if (dateTo && orderDate > new Date(dateTo + 'T23:59:59')) return false
+      const orderDateStr = toWIBDateStr(o.created_at)
+      if (dateFrom && orderDateStr < dateFrom) return false
+      if (dateTo && orderDateStr > dateTo) return false
       return true
     })()
 
     const matchSearch = !filterSearch ||
-      o.customer_name?.toLowerCase().includes(filterSearch.toLowerCase()) ||
-      o.customer_phone?.includes(filterSearch) ||
-      o.id.slice(0,8).toUpperCase().includes(filterSearch.toUpperCase())
+      (o.customer_name || '').toLowerCase().includes(filterSearch.toLowerCase()) ||
+      (o.customer_phone || '').includes(filterSearch) ||
+      o.id.slice(0, 8).toUpperCase().includes(filterSearch.toUpperCase())
 
     const matchMin = !filterMinTotal || (o.total || 0) >= Number(filterMinTotal)
     const matchMax = !filterMaxTotal || (o.total || 0) <= Number(filterMaxTotal)
@@ -165,9 +170,33 @@ export default function AdminOrders() {
   const countByStatus = (key) => key === 'all' ? orders.length : orders.filter(o => o.status === key).length
   const adminName = profile?.full_name || 'Admin'
 
-  const dateLabel = dateFrom || dateTo
-    ? `${dateFrom ? new Date(dateFrom).toLocaleDateString('id-ID') : '...'} — ${dateTo ? new Date(dateTo).toLocaleDateString('id-ID') : '...'}`
+  const hasDateFilter = dateFrom || dateTo
+  const hasOtherFilter = filterSearch || filterMinTotal || filterMaxTotal
+  const hasAnyFilter = hasDateFilter || hasOtherFilter
+
+  const dateLabel = hasDateFilter
+    ? `${dateFrom ? new Date(dateFrom + 'T00:00:00').toLocaleDateString('id-ID') : '...'} — ${dateTo ? new Date(dateTo + 'T00:00:00').toLocaleDateString('id-ID') : '...'}`
     : 'Pilih Tanggal'
+
+  const otherFilterCount = [filterSearch, filterMinTotal, filterMaxTotal].filter(Boolean).length
+
+  const today = new Date()
+  const todayStr = toWIBDateStr(today.toISOString())
+
+  const getWeekRange = () => {
+    const now = new Date()
+    const day = now.getDay()
+    const from = new Date(now); from.setDate(now.getDate() - day)
+    const to = new Date(from); to.setDate(from.getDate() + 6)
+    return { from: toWIBDateStr(from.toISOString()), to: toWIBDateStr(to.toISOString()) }
+  }
+
+  const getMonthRange = () => {
+    const now = new Date()
+    const from = new Date(now.getFullYear(), now.getMonth(), 1)
+    const to = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    return { from: toWIBDateStr(from.toISOString()), to: toWIBDateStr(to.toISOString()) }
+  }
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -205,80 +234,71 @@ export default function AdminOrders() {
         </header>
 
         <main className="p-8">
+
+          {/* Header */}
           <div className="flex justify-between items-start mb-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Daftar Pesanan</h1>
               <p className="text-gray-400 text-sm mt-1">Kelola semua pesanan yang masuk dari pelanggan.</p>
             </div>
 
-            {/* Filter Controls */}
-            <div className="flex items-center gap-2" ref={filterRef}>
+            <div className="flex items-center gap-2">
 
               {/* Date Picker */}
-              <div className="relative">
+              <div className="relative" ref={dateRef}>
                 <button
                   onClick={() => { setShowDatePicker(p => !p); setShowFilterPanel(false) }}
-                  className={`flex items-center gap-2 border rounded-xl px-4 py-2.5 text-sm transition ${
-                    dateFrom || dateTo
+                  className={`flex items-center gap-2 border rounded-xl px-4 py-2.5 text-sm font-medium transition ${
+                    hasDateFilter
                       ? 'border-orange-400 bg-orange-50 text-orange-600'
                       : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
                   }`}>
-                  <CalendarIcon className="w-4 h-4" />
-                  <span>{dateLabel}</span>
-                  {(dateFrom || dateTo) && (
-                    <button onClick={(e) => { e.stopPropagation(); setDateFrom(''); setDateTo(''); setTempDateFrom(''); setTempDateTo(''); setPage(1); setActiveFilters(prev => prev.filter(f => !f.startsWith('Dari:') && !f.startsWith('Sampai:'))) }}
-                      className="ml-1 hover:text-red-500">
+                  <CalendarIcon className="w-4 h-4 flex-shrink-0" />
+                  <span className="whitespace-nowrap">{dateLabel}</span>
+                  {hasDateFilter && (
+                    <span onClick={e => { e.stopPropagation(); handleResetDate() }}
+                      className="ml-1 hover:text-red-500 transition">
                       <XMarkIcon className="w-3.5 h-3.5" />
-                    </button>
+                    </span>
                   )}
                 </button>
 
                 {showDatePicker && (
-                  <div className="absolute right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 p-5 z-50 w-72">
-                    <h3 className="font-bold text-gray-800 text-sm mb-4">Filter Tanggal</h3>
+                  <div className="absolute right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 p-5 z-50 w-64">
+                    <p className="font-bold text-gray-800 text-sm mb-3">Filter Tanggal</p>
+
+                    {/* Quick select */}
+                    <div className="flex gap-1.5 mb-4 flex-wrap">
+                      {[
+                        { label: 'Hari Ini', from: todayStr, to: todayStr },
+                        { label: 'Minggu Ini', from: getWeekRange().from, to: getWeekRange().to },
+                        { label: 'Bulan Ini', from: getMonthRange().from, to: getMonthRange().to },
+                      ].map(q => (
+                        <button key={q.label}
+                          onClick={() => setQuickDate(q.from, q.to)}
+                          className={`text-xs px-3 py-1.5 rounded-lg border transition ${
+                            tempDateFrom === q.from && tempDateTo === q.to
+                              ? 'border-orange-400 bg-orange-50 text-orange-600 font-medium'
+                              : 'border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-500'
+                          }`}>
+                          {q.label}
+                        </button>
+                      ))}
+                    </div>
+
                     <div className="space-y-3 mb-4">
                       <div>
-                        <label className="text-xs text-gray-500 block mb-1">Dari Tanggal</label>
+                        <label className="text-xs text-gray-500 block mb-1">Dari</label>
                         <input type="date" value={tempDateFrom}
                           onChange={e => setTempDateFrom(e.target.value)}
                           className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-400 transition" />
                       </div>
                       <div>
-                        <label className="text-xs text-gray-500 block mb-1">Sampai Tanggal</label>
+                        <label className="text-xs text-gray-500 block mb-1">Sampai</label>
                         <input type="date" value={tempDateTo}
                           onChange={e => setTempDateTo(e.target.value)}
                           className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-400 transition" />
                       </div>
-                    </div>
-
-                    {/* Quick select */}
-                    <div className="flex gap-2 mb-4 flex-wrap">
-                      {[
-                        { label: 'Hari Ini', fn: () => {
-                          const d = new Date().toISOString().slice(0,10)
-                          setTempDateFrom(d); setTempDateTo(d)
-                        }},
-                        { label: 'Minggu Ini', fn: () => {
-                          const now = new Date()
-                          const day = now.getDay()
-                          const from = new Date(now); from.setDate(now.getDate() - day)
-                          const to = new Date(from); to.setDate(from.getDate() + 6)
-                          setTempDateFrom(from.toISOString().slice(0,10))
-                          setTempDateTo(to.toISOString().slice(0,10))
-                        }},
-                        { label: 'Bulan Ini', fn: () => {
-                          const now = new Date()
-                          const from = new Date(now.getFullYear(), now.getMonth(), 1)
-                          const to = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-                          setTempDateFrom(from.toISOString().slice(0,10))
-                          setTempDateTo(to.toISOString().slice(0,10))
-                        }},
-                      ].map(q => (
-                        <button key={q.label} onClick={q.fn}
-                          className="text-xs border border-gray-200 px-3 py-1.5 rounded-lg hover:border-orange-400 hover:text-orange-500 transition">
-                          {q.label}
-                        </button>
-                      ))}
                     </div>
 
                     <div className="flex gap-2">
@@ -296,57 +316,53 @@ export default function AdminOrders() {
               </div>
 
               {/* Filter Panel */}
-              <div className="relative">
+              <div className="relative" ref={filterRef}>
                 <button
-                  onClick={() => { setShowFilterPanel(p => !p); setShowDatePicker(false) }}
-                  className={`flex items-center gap-2 border rounded-xl px-4 py-2.5 text-sm transition ${
-                    filterSearch || filterMinTotal || filterMaxTotal
+                  onClick={() => { setShowFilterPanel(p => !p); setShowDatePicker(false); setTempSearch(filterSearch); setTempMin(filterMinTotal); setTempMax(filterMaxTotal) }}
+                  className={`flex items-center gap-2 border rounded-xl px-4 py-2.5 text-sm font-medium transition ${
+                    hasOtherFilter
                       ? 'border-orange-400 bg-orange-50 text-orange-600'
                       : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
                   }`}>
                   <FunnelIcon className="w-4 h-4" />
                   Filter
-                  {(filterSearch || filterMinTotal || filterMaxTotal) && (
+                  {otherFilterCount > 0 && (
                     <span className="bg-orange-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center font-bold">
-                      {[filterSearch, filterMinTotal, filterMaxTotal].filter(Boolean).length}
+                      {otherFilterCount}
                     </span>
                   )}
                 </button>
 
                 {showFilterPanel && (
-                  <div className="absolute right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 p-5 z-50 w-72">
-                    <h3 className="font-bold text-gray-800 text-sm mb-4">Filter Pesanan</h3>
-                    <div className="space-y-4">
+                  <div className="absolute right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 p-5 z-50 w-64">
+                    <p className="font-bold text-gray-800 text-sm mb-4">Filter Pesanan</p>
 
-                      {/* Search */}
+                    <div className="space-y-4">
                       <div>
-                        <label className="text-xs text-gray-500 block mb-1">Cari Pelanggan / ID</label>
+                        <label className="text-xs font-medium text-gray-500 block mb-1.5">Cari Pelanggan / ID</label>
                         <div className="relative">
                           <MagnifyingGlassIcon className="w-4 h-4 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2" />
-                          <input value={filterSearch} onChange={e => setFilterSearch(e.target.value)}
-                            placeholder="Nama, nomor HP, atau ID..."
+                          <input value={tempSearch} onChange={e => setTempSearch(e.target.value)}
+                            placeholder="Nama, HP, atau ID..."
                             className="w-full border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-sm outline-none focus:border-orange-400 transition" />
                         </div>
                       </div>
 
-                      {/* Total range */}
                       <div>
-                        <label className="text-xs text-gray-500 block mb-1">Total Pesanan (Rp)</label>
+                        <label className="text-xs font-medium text-gray-500 block mb-1.5">Total Pesanan (Rp)</label>
                         <div className="flex gap-2">
-                          <input type="number" value={filterMinTotal}
-                            onChange={e => setFilterMinTotal(e.target.value)}
+                          <input type="number" value={tempMin} onChange={e => setTempMin(e.target.value)}
                             placeholder="Min"
-                            className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-400 transition" />
-                          <input type="number" value={filterMaxTotal}
-                            onChange={e => setFilterMaxTotal(e.target.value)}
+                            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-400 transition" />
+                          <input type="number" value={tempMax} onChange={e => setTempMax(e.target.value)}
                             placeholder="Max"
-                            className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-400 transition" />
+                            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-400 transition" />
                         </div>
                       </div>
                     </div>
 
                     <div className="flex gap-2 mt-5">
-                      <button onClick={() => { setFilterSearch(''); setFilterMinTotal(''); setFilterMaxTotal('') }}
+                      <button onClick={handleResetFilter}
                         className="flex-1 border border-gray-200 text-gray-500 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
                         Reset
                       </button>
@@ -359,30 +375,57 @@ export default function AdminOrders() {
                 )}
               </div>
 
-              {/* Reset all */}
-              {activeFilters.length > 0 && (
+              {hasAnyFilter && (
                 <button onClick={handleResetAll}
-                  className="text-sm text-red-400 hover:text-red-600 font-medium transition">
+                  className="text-sm text-red-400 hover:text-red-600 font-medium transition whitespace-nowrap">
                   Reset Semua
                 </button>
               )}
             </div>
           </div>
 
-          {/* Active Filter Chips */}
-          {activeFilters.length > 0 && (
-            <div className="flex gap-2 flex-wrap mb-4">
-              {activeFilters.map(f => (
-                <div key={f} className="flex items-center gap-1.5 bg-orange-50 border border-orange-200 text-orange-600 text-xs px-3 py-1.5 rounded-full font-medium">
-                  {f}
-                  <button onClick={() => removeFilter(f)} className="hover:text-red-500 transition">
+          {/* Active filter info */}
+          {hasAnyFilter && (
+            <div className="flex items-center gap-2 flex-wrap mb-4">
+              {hasDateFilter && (
+                <div className="flex items-center gap-1.5 bg-orange-50 border border-orange-200 text-orange-600 text-xs px-3 py-1.5 rounded-full font-medium">
+                  <CalendarIcon className="w-3 h-3" />
+                  {dateFrom && dateTo && dateFrom === dateTo
+                    ? new Date(dateFrom + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+                    : dateLabel
+                  }
+                  <button onClick={handleResetDate} className="hover:text-red-500 ml-0.5">
                     <XMarkIcon className="w-3 h-3" />
                   </button>
                 </div>
-              ))}
-              <p className="text-xs text-gray-400 self-center">
+              )}
+              {filterSearch && (
+                <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 text-blue-600 text-xs px-3 py-1.5 rounded-full font-medium">
+                  Cari: "{filterSearch}"
+                  <button onClick={() => { setFilterSearch(''); setTempSearch('') }} className="hover:text-red-500">
+                    <XMarkIcon className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+              {filterMinTotal && (
+                <div className="flex items-center gap-1.5 bg-green-50 border border-green-200 text-green-600 text-xs px-3 py-1.5 rounded-full font-medium">
+                  Min: Rp {Number(filterMinTotal).toLocaleString('id-ID')}
+                  <button onClick={() => { setFilterMinTotal(''); setTempMin('') }} className="hover:text-red-500">
+                    <XMarkIcon className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+              {filterMaxTotal && (
+                <div className="flex items-center gap-1.5 bg-green-50 border border-green-200 text-green-600 text-xs px-3 py-1.5 rounded-full font-medium">
+                  Max: Rp {Number(filterMaxTotal).toLocaleString('id-ID')}
+                  <button onClick={() => { setFilterMaxTotal(''); setTempMax('') }} className="hover:text-red-500">
+                    <XMarkIcon className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+              <span className="text-xs text-gray-400 self-center">
                 {filtered.length} pesanan ditemukan
-              </p>
+              </span>
             </div>
           )}
 
@@ -434,7 +477,7 @@ export default function AdminOrders() {
                     <td colSpan={7} className="text-center py-16 text-gray-400">
                       <FunnelIcon className="w-10 h-10 text-gray-200 mx-auto mb-2" />
                       <p className="font-medium text-gray-500">Tidak ada pesanan ditemukan</p>
-                      <p className="text-sm mt-1">Coba ubah filter atau tanggal</p>
+                      <p className="text-sm mt-1">Coba ubah filter atau rentang tanggal</p>
                     </td>
                   </tr>
                 ) : (
@@ -463,7 +506,7 @@ export default function AdminOrders() {
                             </div>
                             <div>
                               <p className="text-sm text-gray-800">Diantar ke Alamat</p>
-                              <p className="text-xs text-gray-400 max-w-[160px] truncate">
+                              <p className="text-xs text-gray-400 max-w-[150px] truncate">
                                 {order.customer_address || '-'}
                               </p>
                             </div>
@@ -501,12 +544,12 @@ export default function AdminOrders() {
                                       className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition flex items-center gap-2 ${
                                         order.status === key ? 'text-orange-500 font-medium' : 'text-gray-700'
                                       }`}>
-                                      <span className={`w-2 h-2 rounded-full ${
-                                        key === 'pending'   ? 'bg-yellow-400'
-                                        : key === 'confirmed' ? 'bg-blue-400'
-                                        : key === 'processing'? 'bg-orange-400'
-                                        : key === 'delivered' ? 'bg-green-400'
-                                        : key === 'done'      ? 'bg-gray-400'
+                                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                        key === 'pending'    ? 'bg-yellow-400'
+                                        : key === 'confirmed'  ? 'bg-blue-400'
+                                        : key === 'processing' ? 'bg-orange-400'
+                                        : key === 'delivered'  ? 'bg-green-400'
+                                        : key === 'done'       ? 'bg-gray-400'
                                         : 'bg-red-400'
                                       }`} />
                                       {val.label}
@@ -573,7 +616,7 @@ export default function AdminOrders() {
         </main>
       </div>
 
-      {/* DETAIL ORDER MODAL */}
+      {/* DETAIL MODAL */}
       {showDetail && selectedOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowDetail(false)} />
@@ -609,7 +652,7 @@ export default function AdminOrders() {
                   ].map((item, i) => (
                     <div key={i} className="flex justify-between text-sm">
                       <span className="text-gray-400">{item.label}</span>
-                      <span className="font-medium text-gray-800 text-right max-w-[200px]">{item.value || '-'}</span>
+                      <span className="font-medium text-gray-800 text-right max-w-[220px]">{item.value || '-'}</span>
                     </div>
                   ))}
                 </div>
