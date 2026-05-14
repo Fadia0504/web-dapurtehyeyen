@@ -5,7 +5,9 @@ import { useCartStore } from '../store/cartStore'
 import { useAuthStore } from '../store/authStore'
 import {
   MagnifyingGlassIcon, HeartIcon, AdjustmentsHorizontalIcon,
-  ChevronDownIcon, PlusIcon, XMarkIcon, UserIcon, LockClosedIcon
+  ChevronDownIcon, PlusIcon, XMarkIcon, UserIcon, LockClosedIcon,
+  SquaresPlusIcon, CakeIcon, BeakerIcon, SparklesIcon,
+  ShoppingBagIcon, TagIcon, GlobeAltIcon
 } from '@heroicons/react/24/outline'
 import { StarIcon as StarSolid, HeartIcon as HeartSolid } from '@heroicons/react/24/solid'
 
@@ -71,6 +73,17 @@ function Toast({ show, message, type }) {
   )
 }
 
+const getCategoryIcon = (name) => {
+  const cls = "w-4 h-4 flex-shrink-0"
+  if (!name || name === 'Semua') return <SquaresPlusIcon className={cls} />
+  if (name.includes('Catering')) return <CakeIcon className={cls} />
+  if (name.includes('Ala Carte')) return <GlobeAltIcon className={cls} />
+  if (name.includes('Minuman')) return <BeakerIcon className={cls} />
+  if (name.includes('Snack') || name.includes('Cemilan')) return <SparklesIcon className={cls} />
+  if (name.includes('Paket')) return <ShoppingBagIcon className={cls} />
+  return <TagIcon className={cls} />
+}
+
 export default function Menu() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
@@ -78,7 +91,7 @@ export default function Menu() {
 
   const [foods, setFoods] = useState([])
   const [categories, setCategories] = useState([])
-  const [foodStats, setFoodStats] = useState({}) // { foodId: { avgRating, reviewCount, soldCount } }
+  const [foodStats, setFoodStats] = useState({})
   const [activeCategory, setActiveCategory] = useState('Semua')
   const [activeCategoryFilter, setActiveCategoryFilter] = useState([])
   const [priceRange, setPriceRange] = useState(0)
@@ -91,16 +104,13 @@ export default function Menu() {
   const [loginPopupMsg, setLoginPopupMsg] = useState('')
   const [toast, setToast] = useState({ show: false, message: '', type: '' })
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  useEffect(() => { fetchData() }, [])
 
   useEffect(() => {
     if (user) fetchWishlist()
     else { setWishlistIds(new Set()); setWishlistMap({}) }
   }, [user])
 
-  // Realtime stats update
   useEffect(() => {
     const channel = supabase
       .channel('menu-stats-realtime')
@@ -116,7 +126,7 @@ export default function Menu() {
 
   async function fetchData() {
     const [{ data: cats }, { data: foodData }] = await Promise.all([
-      supabase.from('categories').select('*'),
+      supabase.from('categories').select('*').order('created_at'),
       supabase.from('foods').select('*, categories(name)').eq('is_available', true),
     ])
     setCategories(cats || [])
@@ -126,36 +136,24 @@ export default function Menu() {
   }
 
   async function fetchFoodStats() {
-    // Fetch avg rating & review count per food
     const { data: reviewData } = await supabase
-      .from('food_reviews')
-      .select('food_id, rating')
+      .from('food_reviews').select('food_id, rating')
 
-    // Fetch sold count per food (orders done)
     const { data: soldData } = await supabase
       .from('order_items')
       .select('food_id, quantity, orders!inner(status)')
       .eq('orders.status', 'done')
 
     const stats = {}
+    reviewData?.forEach(r => {
+      if (!stats[r.food_id]) stats[r.food_id] = { ratings: [], soldCount: 0 }
+      stats[r.food_id].ratings.push(r.rating)
+    })
+    soldData?.forEach(item => {
+      if (!stats[item.food_id]) stats[item.food_id] = { ratings: [], soldCount: 0 }
+      stats[item.food_id].soldCount += item.quantity || 0
+    })
 
-    // Hitung rating
-    if (reviewData) {
-      reviewData.forEach(r => {
-        if (!stats[r.food_id]) stats[r.food_id] = { ratings: [], soldCount: 0 }
-        stats[r.food_id].ratings.push(r.rating)
-      })
-    }
-
-    // Hitung sold count
-    if (soldData) {
-      soldData.forEach(item => {
-        if (!stats[item.food_id]) stats[item.food_id] = { ratings: [], soldCount: 0 }
-        stats[item.food_id].soldCount += item.quantity || 0
-      })
-    }
-
-    // Compute avg
     const computed = {}
     Object.entries(stats).forEach(([foodId, data]) => {
       const ratings = data.ratings || []
@@ -241,15 +239,6 @@ export default function Menu() {
   })
 
   const categoryTabs = [{ name: 'Semua' }, ...categories]
-
-  const getCategoryEmoji = (name) => {
-    if (name === 'Semua') return '🍽️'
-    if (name?.includes('Catering')) return '🍱'
-    if (name?.includes('Ala Carte')) return '🍳'
-    if (name?.includes('Minuman')) return '🥤'
-    if (name?.includes('Snack')) return '🍪'
-    return '🍴'
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -366,6 +355,7 @@ export default function Menu() {
             </div>
           </div>
 
+          {/* Search */}
           <div className="relative mb-4">
             <MagnifyingGlassIcon className="w-5 h-5 text-gray-300 absolute left-4 top-1/2 -translate-y-1/2" />
             <input value={search} onChange={e => setSearch(e.target.value)}
@@ -373,6 +363,7 @@ export default function Menu() {
               className="w-full bg-white border border-gray-100 rounded-2xl pl-12 pr-4 py-3 text-sm outline-none focus:border-orange-300 shadow-sm transition" />
           </div>
 
+          {/* Category Tabs */}
           <div className="flex gap-2 mb-4 flex-wrap">
             {categoryTabs.map(cat => (
               <button key={cat.name} onClick={() => setActiveCategory(cat.name)}
@@ -381,7 +372,8 @@ export default function Menu() {
                     ? 'bg-orange-500 text-white border-orange-500'
                     : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
                 }`}>
-                {getCategoryEmoji(cat.name)}{cat.name}
+                {getCategoryIcon(cat.name)}
+                {cat.name}
               </button>
             ))}
             <div className="ml-auto flex items-center gap-2">
@@ -398,6 +390,7 @@ export default function Menu() {
 
           <p className="text-sm text-gray-400 mb-4">Menampilkan {filtered.length} dari {foods.length} menu</p>
 
+          {/* Grid */}
           {loading ? (
             <div className="grid grid-cols-4 gap-4">
               {[...Array(8)].map((_, i) => <div key={i} className="bg-white rounded-2xl h-64 animate-pulse" />)}
@@ -459,7 +452,6 @@ export default function Menu() {
                         <span className="text-gray-400 font-normal text-xs">/{food.unit || 'porsi'}</span>
                       </p>
                       <div className="flex items-center justify-between">
-                        {/* Rating & sold count REALTIME */}
                         <div className="flex items-center gap-1">
                           <StarSolid className="w-3.5 h-3.5 text-orange-400" />
                           <span className="text-xs text-gray-600 font-medium">
