@@ -9,7 +9,8 @@ import {
   TruckIcon, HeartIcon, PencilIcon, CameraIcon,
   CheckIcon, XMarkIcon, TrashIcon, PhoneIcon,
   EnvelopeIcon, PlusIcon, ShoppingBagIcon,
-  CheckCircleIcon, ArrowRightOnRectangleIcon
+  CheckCircleIcon, ArrowRightOnRectangleIcon,
+  CreditCardIcon
 } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartSolid, StarIcon as StarSolid } from '@heroicons/react/24/solid'
 
@@ -22,12 +23,13 @@ const menuItems = [
 ]
 
 const statusMap = {
-  pending:   { label: 'Menunggu Konfirmasi', color: 'bg-yellow-100 text-yellow-700' },
-  confirmed: { label: 'Dikonfirmasi',        color: 'bg-blue-100 text-blue-700' },
-  processing:{ label: 'Sedang Diproses',     color: 'bg-orange-100 text-orange-600' },
-  delivered: { label: 'Sedang Dikirim',      color: 'bg-purple-100 text-purple-600' },
-  done:      { label: 'Selesai',             color: 'bg-green-100 text-green-700' },
-  cancelled: { label: 'Dibatalkan',          color: 'bg-red-100 text-red-600' },
+  waiting_payment: { label: 'Menunggu Pembayaran', color: 'bg-gray-100 text-gray-500' },
+  pending:         { label: 'Menunggu Konfirmasi', color: 'bg-yellow-100 text-yellow-700' },
+  confirmed:       { label: 'Dikonfirmasi',        color: 'bg-blue-100 text-blue-700' },
+  processing:      { label: 'Sedang Diproses',     color: 'bg-orange-100 text-orange-600' },
+  delivered:       { label: 'Sedang Dikirim',      color: 'bg-purple-100 text-purple-600' },
+  done:            { label: 'Selesai',             color: 'bg-green-100 text-green-700' },
+  cancelled:       { label: 'Dibatalkan',          color: 'bg-red-100 text-red-600' },
 }
 
 const ratingLabel = ['', 'Sangat Buruk', 'Buruk', 'Cukup', 'Bagus', 'Sangat Bagus!']
@@ -71,26 +73,19 @@ function ReviewModal({ show, onClose, order, onSubmitDone }) {
     setItems(orderItems)
     setStep(0)
     setDone(false)
-
     const foodIds = orderItems.map(i => i.food_id).filter(Boolean)
     if (foodIds.length > 0) {
       const { data } = await supabase
-        .from('food_reviews')
-        .select('food_id, id')
-        .eq('user_id', user.id)
-        .eq('order_id', order.id)
-        .in('food_id', foodIds)
+        .from('food_reviews').select('food_id, id')
+        .eq('user_id', user.id).eq('order_id', order.id).in('food_id', foodIds)
       const reviewed = new Set(data?.map(r => r.food_id) || [])
       setReviewedIds(reviewed)
-
       const initReviews = {}
       orderItems.forEach(item => {
-        if (!reviewed.has(item.food_id)) {
+        if (!reviewed.has(item.food_id))
           initReviews[item.food_id] = { rating: 0, hover: 0, comment: '' }
-        }
       })
       setReviews(initReviews)
-
       const firstUnreviewed = orderItems.findIndex(i => !reviewed.has(i.food_id))
       setStep(firstUnreviewed >= 0 ? firstUnreviewed : 0)
     }
@@ -101,9 +96,8 @@ function ReviewModal({ show, onClose, order, onSubmitDone }) {
   const currentFoodId = currentItem?.food_id
   const currentReview = reviews[currentFoodId] || { rating: 0, hover: 0, comment: '' }
 
-  const updateReview = (foodId, field, value) => {
+  const updateReview = (foodId, field, value) =>
     setReviews(prev => ({ ...prev, [foodId]: { ...prev[foodId], [field]: value } }))
-  }
 
   const handleSubmitCurrent = async () => {
     if (!currentReview.rating) { alert('Harap pilih rating bintang!'); return }
@@ -121,9 +115,7 @@ function ReviewModal({ show, onClose, order, onSubmitDone }) {
       while (nextStep < items.length && reviewedIds.has(items[nextStep]?.food_id)) nextStep++
       if (nextStep >= items.length || unreviewed.length <= 1) {
         setDone(true); onSubmitDone?.()
-      } else {
-        setStep(nextStep)
-      }
+      } else setStep(nextStep)
     } catch (err) {
       alert('Gagal: ' + err.message)
     } finally {
@@ -150,10 +142,7 @@ function ReviewModal({ show, onClose, order, onSubmitDone }) {
             <div className="text-6xl mb-4">🎉</div>
             <h2 className="text-xl font-black text-gray-900 mb-2">Terima Kasih!</h2>
             <p className="text-gray-500 text-sm mb-6">Ulasanmu sangat membantu pembeli lain untuk memilih menu terbaik.</p>
-            <button onClick={onClose}
-              className="w-full bg-orange-500 text-white py-3 rounded-2xl font-bold hover:bg-orange-600 transition">
-              Selesai
-            </button>
+            <button onClick={onClose} className="w-full bg-orange-500 text-white py-3 rounded-2xl font-bold hover:bg-orange-600 transition">Selesai</button>
           </div>
         ) : (
           <>
@@ -165,24 +154,19 @@ function ReviewModal({ show, onClose, order, onSubmitDone }) {
                   {pendingCount > 1 && ` • ${pendingCount} menu tersisa`}
                 </p>
               </div>
-              <button onClick={onClose}
-                className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition">
+              <button onClick={onClose} className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition">
                 <XMarkIcon className="w-5 h-5 text-white" />
               </button>
             </div>
-
             {items.length > 1 && (
               <div className="flex gap-1.5 justify-center pt-4 px-6">
                 {items.map((item, i) => (
                   <div key={i} className={`h-1.5 rounded-full transition-all flex-1 ${
-                    reviewedIds.has(item.food_id) ? 'bg-green-400'
-                    : i === step ? 'bg-orange-500'
-                    : 'bg-gray-200'
+                    reviewedIds.has(item.food_id) ? 'bg-green-400' : i === step ? 'bg-orange-500' : 'bg-gray-200'
                   }`} />
                 ))}
               </div>
             )}
-
             {currentItem && (
               <div className="p-6">
                 <div className="flex items-center gap-4 mb-6 bg-orange-50 rounded-2xl p-4">
@@ -197,7 +181,6 @@ function ReviewModal({ show, onClose, order, onSubmitDone }) {
                     <p className="text-sm text-gray-500">x{currentItem.quantity} • Rp {(currentItem.price * currentItem.quantity).toLocaleString('id-ID')}</p>
                   </div>
                 </div>
-
                 {reviewedIds.has(currentFoodId) ? (
                   <div className="text-center py-4">
                     <CheckIcon className="w-10 h-10 text-green-500 mx-auto mb-2" />
@@ -219,7 +202,6 @@ function ReviewModal({ show, onClose, order, onSubmitDone }) {
                           onHover={val => updateReview(currentFoodId, 'hover', val)} />
                       </div>
                     </div>
-
                     <div className="mb-5">
                       <label className="text-sm font-semibold text-gray-700 block mb-2">Ceritakan pengalamanmu *</label>
                       <textarea value={currentReview.comment}
@@ -229,7 +211,6 @@ function ReviewModal({ show, onClose, order, onSubmitDone }) {
                         className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-400 transition resize-none" />
                       <p className="text-right text-xs text-gray-400 mt-1">{currentReview.comment.length}/300</p>
                     </div>
-
                     <div className="flex gap-3">
                       {items.filter(i => !reviewedIds.has(i.food_id)).length > 1 && (
                         <button onClick={handleSkip}
@@ -286,7 +267,6 @@ export default function Dashboard() {
     if (!user) { navigate('/login'); return }
     fetchOrders()
     fetchWishlist()
-
     const channel = supabase
       .channel('customer-orders-realtime')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
@@ -294,7 +274,6 @@ export default function Dashboard() {
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => { fetchOrders() })
       .subscribe()
-
     return () => { supabase.removeChannel(channel) }
   }, [user])
 
@@ -319,24 +298,18 @@ export default function Dashboard() {
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
     setOrders(data || [])
-
     if (data && data.length > 0) {
       const doneOrders = data.filter(o => o.status === 'done')
       if (doneOrders.length > 0) {
         const { data: reviewData } = await supabase
-          .from('food_reviews')
-          .select('order_id')
+          .from('food_reviews').select('order_id')
           .eq('user_id', user.id)
           .in('order_id', doneOrders.map(o => o.id))
-
         const reviewedCounts = {}
-        reviewData?.forEach(r => {
-          reviewedCounts[r.order_id] = (reviewedCounts[r.order_id] || 0) + 1
-        })
+        reviewData?.forEach(r => { reviewedCounts[r.order_id] = (reviewedCounts[r.order_id] || 0) + 1 })
         const fullyReviewed = new Set()
         doneOrders.forEach(order => {
-          const itemCount = order.order_items?.length || 0
-          if (reviewedCounts[order.id] >= itemCount) fullyReviewed.add(order.id)
+          if (reviewedCounts[order.id] >= (order.order_items?.length || 0)) fullyReviewed.add(order.id)
         })
         setReviewedOrderIds(fullyReviewed)
       }
@@ -347,10 +320,8 @@ export default function Dashboard() {
     if (!user) return
     setLoadingWishlist(true)
     const { data } = await supabase
-      .from('wishlists')
-      .select('*, foods(*, categories(name))')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
+      .from('wishlists').select('*, foods(*, categories(name))')
+      .eq('user_id', user.id).order('created_at', { ascending: false })
     setWishlist(data || [])
     setLoadingWishlist(false)
   }
@@ -407,18 +378,19 @@ export default function Dashboard() {
     }
   }
 
-  const handleLogout = async () => {
-    await logout()
-    navigate('/')
+  const handleLogout = async () => { await logout(); navigate('/') }
+  const handleOpenReview = (order) => { setSelectedOrderForReview(order); setShowReviewModal(true) }
+
+  // Lanjut bayar untuk order waiting_payment
+  const handleLanjutBayar = (order) => {
+    navigate('/payment', { state: { order } })
   }
 
-  const handleOpenReview = (order) => {
-    setSelectedOrderForReview(order)
-    setShowReviewModal(true)
-  }
-
-  const activeOrders = orders.filter(o => !['done', 'cancelled'].includes(o.status))
+  // Active orders = semua selain done, cancelled, waiting_payment
+  const activeOrders = orders.filter(o => !['done', 'cancelled', 'waiting_payment'].includes(o.status))
+  const waitingPaymentOrders = orders.filter(o => o.status === 'waiting_payment')
   const doneOrders = orders.filter(o => o.status === 'done')
+
   const name = profile?.full_name || user?.email?.split('@')[0] || 'Pengguna'
   const email = user?.email || ''
   const memberSince = user?.created_at
@@ -442,7 +414,7 @@ export default function Dashboard() {
     const steps = ['pending', 'confirmed', 'processing', 'delivered']
     const stepLabels = ['Order Dibuat', 'Dikonfirmasi', 'Diproses', 'Dikirim']
     const currentStep = steps.indexOf(order.status)
-    const activeStep = currentStep === -1 ? (order.status === 'done' ? 4 : -1) : currentStep
+    const activeStep = currentStep === -1 ? (order.status === 'done' ? 4 : 0) : currentStep
     const currentStatus = statusMap[order.status] || statusMap.pending
     const { date, time } = formatDateTime(order.created_at)
 
@@ -494,7 +466,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-
       <ReviewModal
         show={showReviewModal}
         onClose={() => { setShowReviewModal(false); setSelectedOrderForReview(null) }}
@@ -568,48 +539,45 @@ export default function Dashboard() {
             {/* Stats */}
             <div className="grid grid-cols-4 gap-4 mb-6">
               {[
-                {
-                  icon: <ShoppingBagIcon className="w-7 h-7 text-orange-500" />,
-                  label: 'Total Pesanan', value: orders.length,
-                  bg: 'bg-orange-50', iconBg: 'bg-orange-100',
-                  valueColor: 'text-orange-500', key: null
-                },
-                {
-                  icon: <CheckCircleIcon className="w-7 h-7 text-green-500" />,
-                  label: 'Selesai', value: doneOrders.length,
-                  bg: 'bg-green-50', iconBg: 'bg-green-100',
-                  valueColor: 'text-green-500', key: null
-                },
-                {
-                  icon: <TruckIcon className="w-7 h-7 text-blue-500" />,
-                  label: 'Berjalan', value: activeOrders.length,
-                  bg: 'bg-blue-50', iconBg: 'bg-blue-100',
-                  valueColor: 'text-blue-500', key: 'active'
-                },
-                {
-                  icon: <HeartIcon className="w-7 h-7 text-pink-500" />,
-                  label: 'Wishlist', value: wishlist.length,
-                  bg: 'bg-pink-50', iconBg: 'bg-pink-100',
-                  valueColor: 'text-pink-500', key: 'wishlist'
-                },
+                { icon: <ShoppingBagIcon className="w-7 h-7 text-orange-500" />, label: 'Total Pesanan', value: orders.filter(o => o.status !== 'waiting_payment').length, bg: 'bg-orange-50', iconBg: 'bg-orange-100', valueColor: 'text-orange-500', key: null },
+                { icon: <CheckCircleIcon className="w-7 h-7 text-green-500" />, label: 'Selesai', value: doneOrders.length, bg: 'bg-green-50', iconBg: 'bg-green-100', valueColor: 'text-green-500', key: null },
+                { icon: <TruckIcon className="w-7 h-7 text-blue-500" />, label: 'Berjalan', value: activeOrders.length, bg: 'bg-blue-50', iconBg: 'bg-blue-100', valueColor: 'text-blue-500', key: 'active' },
+                { icon: <HeartIcon className="w-7 h-7 text-pink-500" />, label: 'Wishlist', value: wishlist.length, bg: 'bg-pink-50', iconBg: 'bg-pink-100', valueColor: 'text-pink-500', key: 'wishlist' },
               ].map((stat, i) => (
                 <div key={i}
                   onClick={() => stat.key && setActivePage(stat.key)}
-                  className={`${stat.bg} rounded-2xl p-5 flex flex-col items-center justify-center gap-2 ${
-                    stat.key ? 'cursor-pointer hover:scale-105 transition-transform' : ''
-                  }`}>
-                  <div className={`${stat.iconBg} w-14 h-14 rounded-2xl flex items-center justify-center`}>
-                    {stat.icon}
-                  </div>
+                  className={`${stat.bg} rounded-2xl p-5 flex flex-col items-center justify-center gap-2 ${stat.key ? 'cursor-pointer hover:scale-105 transition-transform' : ''}`}>
+                  <div className={`${stat.iconBg} w-14 h-14 rounded-2xl flex items-center justify-center`}>{stat.icon}</div>
                   <p className={`text-3xl font-black ${stat.valueColor}`}>{stat.value}</p>
                   <p className="text-xs text-gray-500 font-medium">{stat.label}</p>
                 </div>
               ))}
             </div>
 
-            {/* Banner pesanan perlu diulas */}
+            {/* Banner waiting payment */}
+            {waitingPaymentOrders.length > 0 && (
+              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                    <CreditCardIcon className="w-5 h-5 text-gray-500" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-800 text-sm">
+                      Kamu punya {waitingPaymentOrders.length} pesanan yang belum dibayar
+                    </p>
+                    <p className="text-xs text-gray-400">Selesaikan pembayaran sebelum pesanan dibatalkan.</p>
+                  </div>
+                </div>
+                <button onClick={() => setActivePage('history')}
+                  className="bg-gray-700 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-gray-800 transition flex-shrink-0">
+                  Lihat →
+                </button>
+              </div>
+            )}
+
+            {/* Banner ulasan */}
             {doneOrders.filter(o => !reviewedOrderIds.has(o.id)).length > 0 && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 flex items-center justify-between mb-6">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">⭐</span>
                   <div>
@@ -647,11 +615,9 @@ export default function Dashboard() {
             <div className="bg-white rounded-2xl shadow-sm p-5">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="font-bold text-gray-900">Pesanan Terbaru</h2>
-                <button onClick={() => setActivePage('history')} className="text-orange-500 text-sm hover:underline">
-                  Lihat Semua
-                </button>
+                <button onClick={() => setActivePage('history')} className="text-orange-500 text-sm hover:underline">Lihat Semua</button>
               </div>
-              {orders.slice(0, 3).map((order) => {
+              {orders.filter(o => o.status !== 'waiting_payment').slice(0, 3).map((order) => {
                 const { date } = formatDateTime(order.created_at)
                 const status = statusMap[order.status] || statusMap.pending
                 return (
@@ -670,7 +636,9 @@ export default function Dashboard() {
                   </div>
                 )
               })}
-              {orders.length === 0 && <p className="text-center text-gray-400 text-sm py-6">Belum ada pesanan</p>}
+              {orders.filter(o => o.status !== 'waiting_payment').length === 0 && (
+                <p className="text-center text-gray-400 text-sm py-6">Belum ada pesanan</p>
+              )}
             </div>
           </div>
         )}
@@ -722,8 +690,7 @@ export default function Dashboard() {
                 <div className="flex gap-2">
                   <button onClick={() => { setEditing(false); setAvatarFile(null); setAvatarPreview(null) }}
                     className="flex items-center gap-2 border border-gray-200 text-gray-600 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
-                    <XMarkIcon className="w-4 h-4" />
-                    Batal
+                    <XMarkIcon className="w-4 h-4" />Batal
                   </button>
                   <button onClick={handleSaveProfile} disabled={saving}
                     className="flex items-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-orange-600 transition disabled:opacity-50">
@@ -790,16 +757,12 @@ export default function Dashboard() {
                       <span className="text-sm text-gray-600">Password</span>
                       <div className="flex items-center gap-3">
                         <span className="text-sm text-gray-400 tracking-widest">••••••••</span>
-                        <button className="text-xs border border-orange-300 text-orange-500 px-3 py-1 rounded-lg hover:bg-orange-50 transition">
-                          Ubah Password
-                        </button>
+                        <button className="text-xs border border-orange-300 text-orange-500 px-3 py-1 rounded-lg hover:bg-orange-50 transition">Ubah Password</button>
                       </div>
                     </div>
                     <div className="flex justify-between items-center py-2 border-b border-gray-50">
                       <span className="text-sm text-gray-600">Login Terakhir</span>
-                      <span className="text-sm text-gray-400">
-                        {lastLogin ? `${lastLogin.date} • ${lastLogin.time}` : '-'}
-                      </span>
+                      <span className="text-sm text-gray-400">{lastLogin ? `${lastLogin.date} • ${lastLogin.time}` : '-'}</span>
                     </div>
                     <div className="flex justify-between items-center py-2">
                       <span className="text-sm text-gray-600">Perangkat Aktif</span>
@@ -829,20 +792,17 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Statistik */}
             <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
               <h3 className="font-bold text-gray-900 mb-4">Statistik Akun</h3>
               <div className="grid grid-cols-4 gap-4">
                 {[
-                  { icon: <ShoppingBagIcon className="w-6 h-6 text-orange-500" />, label: 'Total Pesanan', value: orders.length, bg: 'bg-orange-50', iconBg: 'bg-orange-100' },
+                  { icon: <ShoppingBagIcon className="w-6 h-6 text-orange-500" />, label: 'Total Pesanan', value: orders.filter(o => o.status !== 'waiting_payment').length, bg: 'bg-orange-50', iconBg: 'bg-orange-100' },
                   { icon: <CheckCircleIcon className="w-6 h-6 text-green-500" />, label: 'Pesanan Selesai', value: doneOrders.length, bg: 'bg-green-50', iconBg: 'bg-green-100' },
                   { icon: <TruckIcon className="w-6 h-6 text-blue-500" />, label: 'Pesanan Berjalan', value: activeOrders.length, bg: 'bg-blue-50', iconBg: 'bg-blue-100' },
                   { icon: <HeartIcon className="w-6 h-6 text-pink-500" />, label: 'Wishlist', value: wishlist.length, bg: 'bg-pink-50', iconBg: 'bg-pink-100' },
                 ].map((stat, i) => (
                   <div key={i} className={`${stat.bg} rounded-2xl p-4 flex items-center gap-3`}>
-                    <div className={`${stat.iconBg} w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0`}>
-                      {stat.icon}
-                    </div>
+                    <div className={`${stat.iconBg} w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0`}>{stat.icon}</div>
                     <div>
                       <p className="text-xl font-black text-gray-900">{stat.value}</p>
                       <p className="text-xs text-gray-500 mt-0.5">{stat.label}</p>
@@ -852,7 +812,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Logout & Hapus */}
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-white rounded-2xl shadow-sm p-6 flex items-center justify-between">
                 <div>
@@ -873,9 +832,7 @@ export default function Dashboard() {
                   </h3>
                   <p className="text-sm text-gray-400">Data dihapus permanen, tidak bisa dipulihkan.</p>
                 </div>
-                <button className="border border-red-400 text-red-500 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-red-50 transition">
-                  Hapus
-                </button>
+                <button className="border border-red-400 text-red-500 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-red-50 transition">Hapus</button>
               </div>
             </div>
           </div>
@@ -902,9 +859,11 @@ export default function Dashboard() {
                   const { date, time } = formatDateTime(order.created_at)
                   const status = statusMap[order.status] || statusMap.pending
                   const isDone = order.status === 'done'
+                  const isWaitingPayment = order.status === 'waiting_payment'
                   const isFullyReviewed = reviewedOrderIds.has(order.id)
+
                   return (
-                    <div key={order.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                    <div key={order.id} className={`bg-white rounded-2xl shadow-sm overflow-hidden ${isWaitingPayment ? 'opacity-75' : ''}`}>
                       <div className="flex justify-between items-center px-5 pt-5 pb-3 border-b border-gray-50">
                         <div>
                           <p className="font-bold text-gray-800">#{order.id.slice(0,8).toUpperCase()}</p>
@@ -928,6 +887,7 @@ export default function Dashboard() {
                           </span>
                         </div>
                       </div>
+
                       <div className="px-5 py-3 space-y-3">
                         {order.order_items?.map((item, i) => (
                           <div key={i} className="flex items-center gap-3">
@@ -947,12 +907,30 @@ export default function Dashboard() {
                           </div>
                         ))}
                       </div>
+
                       <div className="flex justify-between items-center border-t border-gray-50 px-5 py-3">
                         <span className="text-sm text-gray-500">Total Pembayaran</span>
                         <span className="font-black text-orange-500 text-lg">
                           Rp {order.total?.toLocaleString('id-ID')}
                         </span>
                       </div>
+
+                      {/* Banner lanjut bayar */}
+                      {isWaitingPayment && (
+                        <div className="bg-gray-50 border-t border-gray-100 px-5 py-3 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <CreditCardIcon className="w-4 h-4 text-gray-500" />
+                            <p className="text-sm text-gray-600 font-medium">Pesanan belum dibayar</p>
+                          </div>
+                          <button
+                            onClick={() => handleLanjutBayar(order)}
+                            className="bg-orange-500 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-orange-600 transition flex items-center gap-1.5">
+                            <CreditCardIcon className="w-3.5 h-3.5" />
+                            Bayar Sekarang
+                          </button>
+                        </div>
+                      )}
+
                       {isDone && !isFullyReviewed && (
                         <div className="bg-orange-50 px-5 py-3 flex items-center justify-between">
                           <p className="text-sm text-gray-700 font-medium">⭐ Bagaimana pengalaman kamu?</p>
@@ -1027,9 +1005,7 @@ export default function Dashboard() {
             )}
 
             {loadingWishlist ? (
-              <div className="space-y-4">
-                {[...Array(3)].map((_, i) => <div key={i} className="bg-white rounded-2xl p-4 h-32 animate-pulse" />)}
-              </div>
+              <div className="space-y-4">{[...Array(3)].map((_, i) => <div key={i} className="bg-white rounded-2xl p-4 h-32 animate-pulse" />)}</div>
             ) : wishlist.length === 0 ? (
               <div className="bg-white rounded-2xl shadow-sm p-16 text-center">
                 <HeartIcon className="w-16 h-16 text-gray-200 mx-auto mb-4" />

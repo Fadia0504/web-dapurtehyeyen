@@ -12,27 +12,28 @@ import { useAuthStore } from '../../store/authStore'
 import { formatDateTime } from '../../lib/timeUtils'
 
 const statusConfig = {
-  pending:    { label: 'Menunggu Konfirmasi', color: 'bg-yellow-100 text-yellow-700 border border-yellow-200' },
-  confirmed:  { label: 'Dikonfirmasi',        color: 'bg-blue-100 text-blue-700 border border-blue-200' },
-  processing: { label: 'Diproses',            color: 'bg-orange-100 text-orange-600 border border-orange-200' },
-  delivered:  { label: 'Dikirim',             color: 'bg-green-100 text-green-700 border border-green-200' },
-  done:       { label: 'Selesai',             color: 'bg-gray-100 text-gray-600 border border-gray-200' },
-  cancelled:  { label: 'Dibatalkan',          color: 'bg-red-100 text-red-600 border border-red-200' },
+  waiting_payment: { label: 'Menunggu Pembayaran', color: 'bg-gray-100 text-gray-500 border border-gray-200' },
+  pending:         { label: 'Menunggu Konfirmasi', color: 'bg-yellow-100 text-yellow-700 border border-yellow-200' },
+  confirmed:       { label: 'Dikonfirmasi',        color: 'bg-blue-100 text-blue-700 border border-blue-200' },
+  processing:      { label: 'Diproses',            color: 'bg-orange-100 text-orange-600 border border-orange-200' },
+  delivered:       { label: 'Dikirim',             color: 'bg-green-100 text-green-700 border border-green-200' },
+  done:            { label: 'Selesai',             color: 'bg-teal-100 text-teal-700 border border-teal-200' },
+  cancelled:       { label: 'Dibatalkan',          color: 'bg-red-100 text-red-600 border border-red-200' },
 }
 
 const tabs = [
-  { key: 'all',        label: 'Semua' },
-  { key: 'pending',    label: 'Menunggu Konfirmasi' },
-  { key: 'processing', label: 'Diproses' },
-  { key: 'delivered',  label: 'Dikirim' },
-  { key: 'done',       label: 'Selesai' },
-  { key: 'cancelled',  label: 'Dibatalkan' },
+  { key: 'all',             label: 'Semua' },
+  { key: 'pending',         label: 'Menunggu' },
+  { key: 'confirmed',       label: 'Dikonfirmasi' },
+  { key: 'processing',      label: 'Diproses' },
+  { key: 'delivered',       label: 'Dikirim' },
+  { key: 'done',            label: 'Selesai' },
+  { key: 'cancelled',       label: 'Dibatalkan' },
+  { key: 'waiting_payment', label: 'Belum Bayar' },
 ]
 
-// Convert UTC date ke WIB date string YYYY-MM-DD
 function toWIBDateStr(utcStr) {
   const d = new Date(utcStr)
-  // WIB = UTC+7
   const wib = new Date(d.getTime() + 7 * 60 * 60 * 1000)
   return wib.toISOString().slice(0, 10)
 }
@@ -53,14 +54,12 @@ export default function AdminOrders() {
   const [showDetail, setShowDetail] = useState(false)
   const [actionMenu, setActionMenu] = useState(null)
 
-  // Date filter
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [tempDateFrom, setTempDateFrom] = useState('')
   const [tempDateTo, setTempDateTo] = useState('')
 
-  // Other filters
   const [showFilterPanel, setShowFilterPanel] = useState(false)
   const [filterSearch, setFilterSearch] = useState('')
   const [filterMinTotal, setFilterMinTotal] = useState('')
@@ -73,12 +72,9 @@ export default function AdminOrders() {
 
   useEffect(() => {
     const handler = (e) => {
-      if (adminDropRef.current && !adminDropRef.current.contains(e.target))
-        setAdminDropdown(false)
-      if (dateRef.current && !dateRef.current.contains(e.target))
-        setShowDatePicker(false)
-      if (filterRef.current && !filterRef.current.contains(e.target))
-        setShowFilterPanel(false)
+      if (adminDropRef.current && !adminDropRef.current.contains(e.target)) setAdminDropdown(false)
+      if (dateRef.current && !dateRef.current.contains(e.target)) setShowDatePicker(false)
+      if (filterRef.current && !filterRef.current.contains(e.target)) setShowFilterPanel(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -111,10 +107,7 @@ export default function AdminOrders() {
       cancelButtonColor: '#e5e7eb',
       confirmButtonText: 'Ya, Keluar',
       cancelButtonText: 'Batal',
-      customClass: {
-        popup: 'rounded-2xl',
-        cancelButton: '!text-gray-700',
-      },
+      customClass: { popup: 'rounded-2xl', cancelButton: '!text-gray-700' },
     })
     if (!result.isConfirmed) return
     await supabase.auth.signOut()
@@ -122,45 +115,48 @@ export default function AdminOrders() {
   }
 
   const handleApplyDate = () => {
-    setDateFrom(tempDateFrom)
-    setDateTo(tempDateTo)
-    setShowDatePicker(false)
-    setPage(1)
+    setDateFrom(tempDateFrom); setDateTo(tempDateTo)
+    setShowDatePicker(false); setPage(1)
   }
 
   const handleResetDate = () => {
-    setDateFrom(''); setDateTo('')
-    setTempDateFrom(''); setTempDateTo('')
-    setPage(1)
+    setDateFrom(''); setDateTo(''); setTempDateFrom(''); setTempDateTo(''); setPage(1)
   }
 
   const handleApplyFilter = () => {
-    setFilterSearch(tempSearch)
-    setFilterMinTotal(tempMin)
-    setFilterMaxTotal(tempMax)
-    setShowFilterPanel(false)
-    setPage(1)
+    setFilterSearch(tempSearch); setFilterMinTotal(tempMin); setFilterMaxTotal(tempMax)
+    setShowFilterPanel(false); setPage(1)
   }
 
   const handleResetFilter = () => {
     setTempSearch(''); setTempMin(''); setTempMax('')
-    setFilterSearch(''); setFilterMinTotal(''); setFilterMaxTotal('')
-    setPage(1)
+    setFilterSearch(''); setFilterMinTotal(''); setFilterMaxTotal(''); setPage(1)
   }
 
-  const handleResetAll = () => {
-    handleResetDate()
-    handleResetFilter()
+  const handleResetAll = () => { handleResetDate(); handleResetFilter() }
+
+  const today = new Date()
+  const todayStr = toWIBDateStr(today.toISOString())
+
+  const getWeekRange = () => {
+    const now = new Date(); const day = now.getDay()
+    const from = new Date(now); from.setDate(now.getDate() - day)
+    const to = new Date(from); to.setDate(from.getDate() + 6)
+    return { from: toWIBDateStr(from.toISOString()), to: toWIBDateStr(to.toISOString()) }
   }
 
-  const setQuickDate = (from, to) => {
-    setTempDateFrom(from)
-    setTempDateTo(to)
+  const getMonthRange = () => {
+    const now = new Date()
+    const from = new Date(now.getFullYear(), now.getMonth(), 1)
+    const to = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    return { from: toWIBDateStr(from.toISOString()), to: toWIBDateStr(to.toISOString()) }
   }
 
-  // Filter logic — date comparison pakai WIB
+  // Filter: tab 'all' sembunyikan waiting_payment supaya admin tidak bingung
   const filtered = orders.filter(o => {
-    const matchTab = activeTab === 'all' || o.status === activeTab
+    const matchTab = activeTab === 'all'
+      ? o.status !== 'waiting_payment'  // sembunyikan belum bayar di tab semua
+      : o.status === activeTab
 
     const matchDate = (() => {
       if (!dateFrom && !dateTo) return true
@@ -183,36 +179,24 @@ export default function AdminOrders() {
 
   const totalPages = Math.ceil(filtered.length / perPage)
   const paginated = filtered.slice((page - 1) * perPage, page * perPage)
-  const countByStatus = (key) => key === 'all' ? orders.length : orders.filter(o => o.status === key).length
-  const adminName = profile?.full_name || 'Admin'
 
+  const countByStatus = (key) => {
+    if (key === 'all') return orders.filter(o => o.status !== 'waiting_payment').length
+    return orders.filter(o => o.status === key).length
+  }
+
+  const adminName = profile?.full_name || 'Admin'
   const hasDateFilter = dateFrom || dateTo
   const hasOtherFilter = filterSearch || filterMinTotal || filterMaxTotal
   const hasAnyFilter = hasDateFilter || hasOtherFilter
+  const otherFilterCount = [filterSearch, filterMinTotal, filterMaxTotal].filter(Boolean).length
 
   const dateLabel = hasDateFilter
     ? `${dateFrom ? new Date(dateFrom + 'T00:00:00').toLocaleDateString('id-ID') : '...'} — ${dateTo ? new Date(dateTo + 'T00:00:00').toLocaleDateString('id-ID') : '...'}`
     : 'Pilih Tanggal'
 
-  const otherFilterCount = [filterSearch, filterMinTotal, filterMaxTotal].filter(Boolean).length
-
-  const today = new Date()
-  const todayStr = toWIBDateStr(today.toISOString())
-
-  const getWeekRange = () => {
-    const now = new Date()
-    const day = now.getDay()
-    const from = new Date(now); from.setDate(now.getDate() - day)
-    const to = new Date(from); to.setDate(from.getDate() + 6)
-    return { from: toWIBDateStr(from.toISOString()), to: toWIBDateStr(to.toISOString()) }
-  }
-
-  const getMonthRange = () => {
-    const now = new Date()
-    const from = new Date(now.getFullYear(), now.getMonth(), 1)
-    const to = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    return { from: toWIBDateStr(from.toISOString()), to: toWIBDateStr(to.toISOString()) }
-  }
+  // Jumlah waiting_payment untuk badge
+  const waitingPaymentCount = orders.filter(o => o.status === 'waiting_payment').length
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -259,21 +243,16 @@ export default function AdminOrders() {
             </div>
 
             <div className="flex items-center gap-2">
-
               {/* Date Picker */}
               <div className="relative" ref={dateRef}>
-                <button
-                  onClick={() => { setShowDatePicker(p => !p); setShowFilterPanel(false) }}
+                <button onClick={() => { setShowDatePicker(p => !p); setShowFilterPanel(false) }}
                   className={`flex items-center gap-2 border rounded-xl px-4 py-2.5 text-sm font-medium transition ${
-                    hasDateFilter
-                      ? 'border-orange-400 bg-orange-50 text-orange-600'
-                      : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                    hasDateFilter ? 'border-orange-400 bg-orange-50 text-orange-600' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
                   }`}>
                   <CalendarIcon className="w-4 h-4 flex-shrink-0" />
                   <span className="whitespace-nowrap">{dateLabel}</span>
                   {hasDateFilter && (
-                    <span onClick={e => { e.stopPropagation(); handleResetDate() }}
-                      className="ml-1 hover:text-red-500 transition">
+                    <span onClick={e => { e.stopPropagation(); handleResetDate() }} className="ml-1 hover:text-red-500 transition">
                       <XMarkIcon className="w-3.5 h-3.5" />
                     </span>
                   )}
@@ -282,41 +261,34 @@ export default function AdminOrders() {
                 {showDatePicker && (
                   <div className="absolute right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 p-5 z-50 w-64">
                     <p className="font-bold text-gray-800 text-sm mb-3">Filter Tanggal</p>
-
-                    {/* Quick select */}
                     <div className="flex gap-1.5 mb-4 flex-wrap">
                       {[
                         { label: 'Hari Ini', from: todayStr, to: todayStr },
                         { label: 'Minggu Ini', from: getWeekRange().from, to: getWeekRange().to },
                         { label: 'Bulan Ini', from: getMonthRange().from, to: getMonthRange().to },
                       ].map(q => (
-                        <button key={q.label}
-                          onClick={() => setQuickDate(q.from, q.to)}
+                        <button key={q.label} onClick={() => { setTempDateFrom(q.from); setTempDateTo(q.to) }}
                           className={`text-xs px-3 py-1.5 rounded-lg border transition ${
                             tempDateFrom === q.from && tempDateTo === q.to
                               ? 'border-orange-400 bg-orange-50 text-orange-600 font-medium'
-                              : 'border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-500'
+                              : 'border-gray-200 text-gray-600 hover:border-orange-300'
                           }`}>
                           {q.label}
                         </button>
                       ))}
                     </div>
-
                     <div className="space-y-3 mb-4">
                       <div>
                         <label className="text-xs text-gray-500 block mb-1">Dari</label>
-                        <input type="date" value={tempDateFrom}
-                          onChange={e => setTempDateFrom(e.target.value)}
-                          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-400 transition" />
+                        <input type="date" value={tempDateFrom} onChange={e => setTempDateFrom(e.target.value)}
+                          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-400" />
                       </div>
                       <div>
                         <label className="text-xs text-gray-500 block mb-1">Sampai</label>
-                        <input type="date" value={tempDateTo}
-                          onChange={e => setTempDateTo(e.target.value)}
-                          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-400 transition" />
+                        <input type="date" value={tempDateTo} onChange={e => setTempDateTo(e.target.value)}
+                          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-400" />
                       </div>
                     </div>
-
                     <div className="flex gap-2">
                       <button onClick={() => { setTempDateFrom(''); setTempDateTo('') }}
                         className="flex-1 border border-gray-200 text-gray-500 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
@@ -333,12 +305,9 @@ export default function AdminOrders() {
 
               {/* Filter Panel */}
               <div className="relative" ref={filterRef}>
-                <button
-                  onClick={() => { setShowFilterPanel(p => !p); setShowDatePicker(false); setTempSearch(filterSearch); setTempMin(filterMinTotal); setTempMax(filterMaxTotal) }}
+                <button onClick={() => { setShowFilterPanel(p => !p); setShowDatePicker(false); setTempSearch(filterSearch); setTempMin(filterMinTotal); setTempMax(filterMaxTotal) }}
                   className={`flex items-center gap-2 border rounded-xl px-4 py-2.5 text-sm font-medium transition ${
-                    hasOtherFilter
-                      ? 'border-orange-400 bg-orange-50 text-orange-600'
-                      : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                    hasOtherFilter ? 'border-orange-400 bg-orange-50 text-orange-600' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
                   }`}>
                   <FunnelIcon className="w-4 h-4" />
                   Filter
@@ -352,7 +321,6 @@ export default function AdminOrders() {
                 {showFilterPanel && (
                   <div className="absolute right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 p-5 z-50 w-64">
                     <p className="font-bold text-gray-800 text-sm mb-4">Filter Pesanan</p>
-
                     <div className="space-y-4">
                       <div>
                         <label className="text-xs font-medium text-gray-500 block mb-1.5">Cari Pelanggan / ID</label>
@@ -360,23 +328,19 @@ export default function AdminOrders() {
                           <MagnifyingGlassIcon className="w-4 h-4 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2" />
                           <input value={tempSearch} onChange={e => setTempSearch(e.target.value)}
                             placeholder="Nama, HP, atau ID..."
-                            className="w-full border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-sm outline-none focus:border-orange-400 transition" />
+                            className="w-full border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-sm outline-none focus:border-orange-400" />
                         </div>
                       </div>
-
                       <div>
                         <label className="text-xs font-medium text-gray-500 block mb-1.5">Total Pesanan (Rp)</label>
                         <div className="flex gap-2">
                           <input type="number" value={tempMin} onChange={e => setTempMin(e.target.value)}
-                            placeholder="Min"
-                            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-400 transition" />
+                            placeholder="Min" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-400" />
                           <input type="number" value={tempMax} onChange={e => setTempMax(e.target.value)}
-                            placeholder="Max"
-                            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-400 transition" />
+                            placeholder="Max" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-400" />
                         </div>
                       </div>
                     </div>
-
                     <div className="flex gap-2 mt-5">
                       <button onClick={handleResetFilter}
                         className="flex-1 border border-gray-200 text-gray-500 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
@@ -400,48 +364,39 @@ export default function AdminOrders() {
             </div>
           </div>
 
-          {/* Active filter info */}
+          {/* Info banner waiting_payment */}
+          {waitingPaymentCount > 0 && activeTab !== 'waiting_payment' && (
+            <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-gray-400 animate-pulse" />
+                <p className="text-sm text-gray-500">
+                  Ada <span className="font-semibold text-gray-700">{waitingPaymentCount} pesanan</span> yang belum menyelesaikan pembayaran
+                </p>
+              </div>
+              <button onClick={() => { setActiveTab('waiting_payment'); setPage(1) }}
+                className="text-xs text-orange-500 font-semibold hover:underline">
+                Lihat →
+              </button>
+            </div>
+          )}
+
+          {/* Active filter chips */}
           {hasAnyFilter && (
             <div className="flex items-center gap-2 flex-wrap mb-4">
               {hasDateFilter && (
                 <div className="flex items-center gap-1.5 bg-orange-50 border border-orange-200 text-orange-600 text-xs px-3 py-1.5 rounded-full font-medium">
                   <CalendarIcon className="w-3 h-3" />
-                  {dateFrom && dateTo && dateFrom === dateTo
-                    ? new Date(dateFrom + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
-                    : dateLabel
-                  }
-                  <button onClick={handleResetDate} className="hover:text-red-500 ml-0.5">
-                    <XMarkIcon className="w-3 h-3" />
-                  </button>
+                  {dateLabel}
+                  <button onClick={handleResetDate} className="hover:text-red-500 ml-0.5"><XMarkIcon className="w-3 h-3" /></button>
                 </div>
               )}
               {filterSearch && (
                 <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 text-blue-600 text-xs px-3 py-1.5 rounded-full font-medium">
                   Cari: "{filterSearch}"
-                  <button onClick={() => { setFilterSearch(''); setTempSearch('') }} className="hover:text-red-500">
-                    <XMarkIcon className="w-3 h-3" />
-                  </button>
+                  <button onClick={() => { setFilterSearch(''); setTempSearch('') }} className="hover:text-red-500"><XMarkIcon className="w-3 h-3" /></button>
                 </div>
               )}
-              {filterMinTotal && (
-                <div className="flex items-center gap-1.5 bg-green-50 border border-green-200 text-green-600 text-xs px-3 py-1.5 rounded-full font-medium">
-                  Min: Rp {Number(filterMinTotal).toLocaleString('id-ID')}
-                  <button onClick={() => { setFilterMinTotal(''); setTempMin('') }} className="hover:text-red-500">
-                    <XMarkIcon className="w-3 h-3" />
-                  </button>
-                </div>
-              )}
-              {filterMaxTotal && (
-                <div className="flex items-center gap-1.5 bg-green-50 border border-green-200 text-green-600 text-xs px-3 py-1.5 rounded-full font-medium">
-                  Max: Rp {Number(filterMaxTotal).toLocaleString('id-ID')}
-                  <button onClick={() => { setFilterMaxTotal(''); setTempMax('') }} className="hover:text-red-500">
-                    <XMarkIcon className="w-3 h-3" />
-                  </button>
-                </div>
-              )}
-              <span className="text-xs text-gray-400 self-center">
-                {filtered.length} pesanan ditemukan
-              </span>
+              <span className="text-xs text-gray-400">{filtered.length} pesanan ditemukan</span>
             </div>
           )}
 
@@ -473,9 +428,10 @@ export default function AdminOrders() {
                   <th className="px-6 py-4 text-xs font-semibold text-gray-400">ID Pesanan</th>
                   <th className="px-4 py-4 text-xs font-semibold text-gray-400">Tanggal</th>
                   <th className="px-4 py-4 text-xs font-semibold text-gray-400">Pelanggan</th>
-                  <th className="px-4 py-4 text-xs font-semibold text-gray-400">Metode Pengiriman</th>
+                  <th className="px-4 py-4 text-xs font-semibold text-gray-400">Pengiriman</th>
                   <th className="px-4 py-4 text-xs font-semibold text-gray-400">Total</th>
                   <th className="px-4 py-4 text-xs font-semibold text-gray-400">Status</th>
+                  <th className="px-4 py-4 text-xs font-semibold text-gray-400">Pembayaran</th>
                   <th className="px-4 py-4 text-xs font-semibold text-gray-400">Aksi</th>
                 </tr>
               </thead>
@@ -483,78 +439,92 @@ export default function AdminOrders() {
                 {loading ? (
                   [...Array(5)].map((_, i) => (
                     <tr key={i} className="border-b border-gray-50">
-                      <td colSpan={7} className="px-6 py-4">
+                      <td colSpan={8} className="px-6 py-4">
                         <div className="h-10 bg-gray-100 rounded-xl animate-pulse" />
                       </td>
                     </tr>
                   ))
                 ) : paginated.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-16 text-gray-400">
+                    <td colSpan={8} className="text-center py-16 text-gray-400">
                       <FunnelIcon className="w-10 h-10 text-gray-200 mx-auto mb-2" />
                       <p className="font-medium text-gray-500">Tidak ada pesanan ditemukan</p>
-                      <p className="text-sm mt-1">Coba ubah filter atau rentang tanggal</p>
+                      <p className="text-sm mt-1">Coba ubah filter atau tab status</p>
                     </td>
                   </tr>
-                ) : (
-                  paginated.map(order => {
-                    const { date, time } = formatDateTime(order.created_at)
-                    const status = statusConfig[order.status] || statusConfig.pending
-                    return (
-                      <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
-                        <td className="px-6 py-4">
-                          <p className="font-bold text-gray-800 text-sm">
-                            #ORD-{order.id.slice(0,8).toUpperCase()}
-                          </p>
-                        </td>
-                        <td className="px-4 py-4">
-                          <p className="text-sm text-gray-800">{date}</p>
-                          <p className="text-xs text-gray-400">{time}</p>
-                        </td>
-                        <td className="px-4 py-4">
-                          <p className="text-sm font-medium text-gray-800">{order.customer_name || '-'}</p>
-                          <p className="text-xs text-gray-400">{order.customer_phone || '-'}</p>
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                              <TruckIcon className="w-4 h-4 text-orange-400" />
-                            </div>
-                            <div>
-                              <p className="text-sm text-gray-800">Diantar ke Alamat</p>
-                              <p className="text-xs text-gray-400 max-w-[150px] truncate">
-                                {order.customer_address || '-'}
-                              </p>
-                            </div>
+                ) : paginated.map(order => {
+                  const { date, time } = formatDateTime(order.created_at)
+                  const status = statusConfig[order.status] || statusConfig.pending
+                  return (
+                    <tr key={order.id} className={`border-b border-gray-50 hover:bg-gray-50/50 transition ${
+                      order.status === 'waiting_payment' ? 'opacity-60' : ''
+                    }`}>
+                      <td className="px-6 py-4">
+                        <p className="font-bold text-gray-800 text-sm">
+                          #ORD-{order.id.slice(0, 8).toUpperCase()}
+                        </p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <p className="text-sm text-gray-800">{date}</p>
+                        <p className="text-xs text-gray-400">{time}</p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <p className="text-sm font-medium text-gray-800">{order.customer_name || '-'}</p>
+                        <p className="text-xs text-gray-400">{order.customer_phone || '-'}</p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <TruckIcon className="w-4 h-4 text-orange-400" />
                           </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <p className="font-bold text-gray-800 text-sm">
-                            Rp {order.total?.toLocaleString('id-ID')}
+                          <p className="text-xs text-gray-400 max-w-[130px] truncate">
+                            {order.customer_address || '-'}
                           </p>
-                        </td>
-                        <td className="px-4 py-4">
-                          <span className={`text-xs px-3 py-1.5 rounded-full font-medium ${status.color}`}>
-                            {status.label}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <p className="font-bold text-gray-800 text-sm">
+                          Rp {order.total?.toLocaleString('id-ID')}
+                        </p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className={`text-xs px-3 py-1.5 rounded-full font-medium ${status.color}`}>
+                          {status.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        {order.payment_status === 'paid' ? (
+                          <span className="text-xs px-3 py-1.5 rounded-full font-medium bg-green-100 text-green-700 border border-green-200">
+                            Lunas
                           </span>
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => { setSelectedOrder(order); setShowDetail(true) }}
-                              className="w-8 h-8 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-orange-50 hover:border-orange-300 hover:text-orange-500 transition">
-                              <EyeIcon className="w-4 h-4" />
-                            </button>
+                        ) : order.payment_status === 'pending' ? (
+                          <span className="text-xs px-3 py-1.5 rounded-full font-medium bg-yellow-100 text-yellow-700 border border-yellow-200">
+                            Pending
+                          </span>
+                        ) : (
+                          <span className="text-xs px-3 py-1.5 rounded-full font-medium bg-red-100 text-red-500 border border-red-200">
+                            Belum Bayar
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => { setSelectedOrder(order); setShowDetail(true) }}
+                            className="w-8 h-8 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-orange-50 hover:border-orange-300 hover:text-orange-500 transition">
+                            <EyeIcon className="w-4 h-4" />
+                          </button>
+                          {order.status !== 'waiting_payment' && (
                             <div className="relative">
-                              <button
-                                onClick={() => setActionMenu(actionMenu === order.id ? null : order.id)}
+                              <button onClick={() => setActionMenu(actionMenu === order.id ? null : order.id)}
                                 className="w-8 h-8 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50 transition">
                                 <EllipsisHorizontalIcon className="w-4 h-4" />
                               </button>
                               {actionMenu === order.id && (
                                 <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-20">
                                   <p className="text-xs text-gray-400 font-semibold px-4 pt-3 pb-1">Ubah Status</p>
-                                  {Object.entries(statusConfig).map(([key, val]) => (
+                                  {Object.entries(statusConfig)
+                                    .filter(([key]) => key !== 'waiting_payment')
+                                    .map(([key, val]) => (
                                     <button key={key}
                                       onClick={() => handleUpdateStatus(order.id, key)}
                                       className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition flex items-center gap-2 ${
@@ -565,7 +535,7 @@ export default function AdminOrders() {
                                         : key === 'confirmed'  ? 'bg-blue-400'
                                         : key === 'processing' ? 'bg-orange-400'
                                         : key === 'delivered'  ? 'bg-green-400'
-                                        : key === 'done'       ? 'bg-gray-400'
+                                        : key === 'done'       ? 'bg-teal-400'
                                         : 'bg-red-400'
                                       }`} />
                                       {val.label}
@@ -575,12 +545,12 @@ export default function AdminOrders() {
                                 </div>
                               )}
                             </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
 
@@ -592,28 +562,20 @@ export default function AdminOrders() {
               <div className="flex items-center gap-3">
                 <div className="flex gap-1">
                   <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page===1}
-                    className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-sm hover:bg-gray-50 disabled:opacity-40 transition">
-                    ‹
-                  </button>
+                    className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-sm hover:bg-gray-50 disabled:opacity-40 transition">‹</button>
                   {[...Array(Math.min(totalPages, 5))].map((_, i) => (
                     <button key={i} onClick={() => setPage(i+1)}
                       className={`w-8 h-8 rounded-lg text-sm font-medium transition ${
                         page===i+1 ? 'bg-orange-500 text-white' : 'border border-gray-200 hover:bg-gray-50'
-                      }`}>
-                      {i+1}
-                    </button>
+                      }`}>{i+1}</button>
                   ))}
                   {totalPages > 5 && <span className="text-gray-400 text-sm px-1">...</span>}
                   {totalPages > 5 && (
                     <button onClick={() => setPage(totalPages)}
-                      className="w-8 h-8 rounded-lg text-sm border border-gray-200 hover:bg-gray-50">
-                      {totalPages}
-                    </button>
+                      className="w-8 h-8 rounded-lg text-sm border border-gray-200 hover:bg-gray-50">{totalPages}</button>
                   )}
                   <button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page>=totalPages || totalPages===0}
-                    className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-sm hover:bg-gray-50 disabled:opacity-40 transition">
-                    ›
-                  </button>
+                    className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-sm hover:bg-gray-50 disabled:opacity-40 transition">›</button>
                 </div>
                 <div className="flex items-center gap-2 ml-4">
                   <span className="text-sm text-gray-400">Tampilkan</span>
@@ -648,11 +610,23 @@ export default function AdminOrders() {
               </button>
             </div>
             <div className="p-6 space-y-5">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 flex-wrap">
                 <span className={`text-sm px-3 py-1.5 rounded-full font-medium ${statusConfig[selectedOrder.status]?.color}`}>
                   {statusConfig[selectedOrder.status]?.label}
                 </span>
-                <p className="text-xs text-gray-400">
+                {selectedOrder.payment_status === 'paid' ? (
+                  <span className="text-xs px-3 py-1.5 rounded-full font-medium bg-green-100 text-green-700 border border-green-200">Lunas</span>
+                ) : selectedOrder.payment_status === 'pending' ? (
+                  <span className="text-xs px-3 py-1.5 rounded-full font-medium bg-yellow-100 text-yellow-700 border border-yellow-200">Pembayaran Pending</span>
+                ) : (
+                  <span className="text-xs px-3 py-1.5 rounded-full font-medium bg-red-100 text-red-500 border border-red-200">Belum Bayar</span>
+                )}
+                {selectedOrder.payment_method && (
+                  <span className="text-xs px-3 py-1.5 rounded-full font-medium bg-blue-50 text-blue-600 border border-blue-200">
+                    {selectedOrder.payment_method}
+                  </span>
+                )}
+                <p className="text-xs text-gray-400 ml-auto">
                   {formatDateTime(selectedOrder.created_at).date} • {formatDateTime(selectedOrder.created_at).time}
                 </p>
               </div>
@@ -702,22 +676,34 @@ export default function AdminOrders() {
                 <span className="text-orange-500">Rp {selectedOrder.total?.toLocaleString('id-ID')}</span>
               </div>
 
-              <div>
-                <h3 className="font-semibold text-gray-800 text-sm mb-3">Update Status</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {Object.entries(statusConfig).map(([key, val]) => (
-                    <button key={key}
-                      onClick={() => handleUpdateStatus(selectedOrder.id, key)}
-                      className={`py-2.5 px-3 rounded-xl text-xs font-medium transition border ${
-                        selectedOrder.status === key
-                          ? 'bg-orange-500 text-white border-orange-500'
-                          : 'border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-500'
-                      }`}>
-                      {val.label}
-                    </button>
-                  ))}
+              {/* Update status hanya kalau bukan waiting_payment */}
+              {selectedOrder.status !== 'waiting_payment' && (
+                <div>
+                  <h3 className="font-semibold text-gray-800 text-sm mb-3">Update Status</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.entries(statusConfig)
+                      .filter(([key]) => key !== 'waiting_payment')
+                      .map(([key, val]) => (
+                      <button key={key}
+                        onClick={() => handleUpdateStatus(selectedOrder.id, key)}
+                        className={`py-2.5 px-3 rounded-xl text-xs font-medium transition border ${
+                          selectedOrder.status === key
+                            ? 'bg-orange-500 text-white border-orange-500'
+                            : 'border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-500'
+                        }`}>
+                        {val.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {selectedOrder.status === 'waiting_payment' && (
+                <div className="bg-gray-50 rounded-xl p-4 text-center">
+                  <p className="text-sm text-gray-500">Pesanan ini belum menyelesaikan pembayaran.</p>
+                  <p className="text-xs text-gray-400 mt-1">Status akan otomatis berubah setelah pelanggan membayar.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

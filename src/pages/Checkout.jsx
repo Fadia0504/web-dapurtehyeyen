@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useCartStore } from '../store/cartStore'
 import { useAuthStore } from '../store/authStore'
 import { ChevronLeftIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
+import Swal from 'sweetalert2'
 
 export default function Checkout() {
   const { items, total, clearCart } = useCartStore()
@@ -12,12 +13,10 @@ export default function Checkout() {
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({ name: '', phone: '', address: '', notes: '' })
 
-  // Redirect kalau cart kosong — di dalam useEffect, bukan saat render
   useEffect(() => {
     if (items.length === 0) navigate('/menu')
   }, [])
 
-  // Auto-fill dari profile
   useEffect(() => {
     if (profile) {
       setForm(prev => ({
@@ -33,19 +32,26 @@ export default function Checkout() {
 
   const handleSubmit = async () => {
     if (!form.name || !form.phone || !form.address) {
-      alert('Mohon isi semua field yang wajib!')
+      Swal.fire({
+        icon: 'warning',
+        title: 'Data Belum Lengkap',
+        text: 'Mohon isi semua field yang wajib diisi!',
+        confirmButtonColor: '#f97316',
+        customClass: { popup: 'rounded-2xl' }
+      })
       return
     }
+
     setLoading(true)
     try {
-      // Simpan sebelum clearCart
       const cartItems = [...items]
       const cartTotal = total()
 
       const { data: order, error } = await supabase.from('orders').insert({
         user_id: user?.id || null,
         total: cartTotal,
-        status: 'pending',
+        status: 'waiting_payment', // belum masuk ke admin sebelum bayar
+        payment_status: 'unpaid',
         customer_name: form.name,
         customer_phone: form.phone,
         customer_address: form.address,
@@ -64,15 +70,18 @@ export default function Checkout() {
       const { error: itemsError } = await supabase.from('order_items').insert(orderItems)
       if (itemsError) throw itemsError
 
-      // Simpan ke sessionStorage sebelum navigate
-      const paymentPayload = { order, items: cartItems, total: cartTotal }
-      sessionStorage.setItem('paymentData', JSON.stringify(paymentPayload))
-
       clearCart()
-      navigate('/payment')
+      navigate('/payment', { state: { order } })
+
     } catch (err) {
       console.error(err)
-      alert('Terjadi kesalahan: ' + err.message)
+      Swal.fire({
+        icon: 'error',
+        title: 'Terjadi Kesalahan',
+        text: err.message,
+        confirmButtonColor: '#f97316',
+        customClass: { popup: 'rounded-2xl' }
+      })
     } finally {
       setLoading(false)
     }
@@ -88,9 +97,7 @@ export default function Checkout() {
           <span className="text-sm">Kembali ke Keranjang</span>
         </Link>
 
-        <h1 className="text-2xl font-black text-gray-900 mb-1" style={{fontFamily:'Playfair Display, serif'}}>
-          Checkout
-        </h1>
+        <h1 className="text-2xl font-bold text-gray-800 tracking-tight mb-1">Checkout</h1>
         <p className="text-gray-400 text-sm mb-6">Lengkapi data pengiriman untuk melanjutkan pesananmu.</p>
 
         <div className="grid grid-cols-3 gap-6">
@@ -117,13 +124,22 @@ export default function Checkout() {
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-400 transition resize-none" />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1">Catatan (opsional)</label>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">
+                    Catatan <span className="text-gray-400 font-normal">(opsional)</span>
+                  </label>
                   <textarea name="notes" value={form.notes} onChange={handleChange}
                     placeholder="Contoh: tidak pakai pedas, extra nasi, dll."
                     rows={2}
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-400 transition resize-none" />
                 </div>
               </div>
+            </div>
+
+            <div className="bg-blue-50 rounded-2xl p-5">
+              <p className="text-sm font-semibold text-blue-700 mb-1">Metode Pembayaran</p>
+              <p className="text-xs text-blue-500 leading-relaxed">
+                Kamu bisa memilih metode pembayaran di halaman berikutnya. Tersedia Transfer Bank, Virtual Account, GoPay, ShopeePay, QRIS, Kartu Kredit, Indomaret, dan Alfamart.
+              </p>
             </div>
           </div>
 
@@ -156,8 +172,12 @@ export default function Checkout() {
             </div>
 
             <button onClick={handleSubmit} disabled={loading}
-              className="w-full bg-orange-500 text-white py-4 rounded-2xl font-bold text-lg hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed">
-              {loading ? 'Memproses...' : 'Lanjut ke Pembayaran →'}
+              className="w-full bg-orange-500 text-white py-4 rounded-2xl font-bold text-lg hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+              {loading ? (
+                <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Memproses...</>
+              ) : (
+                'Lanjut ke Pembayaran →'
+              )}
             </button>
 
             <div className="flex items-center gap-2 justify-center mt-3">
