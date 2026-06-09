@@ -85,6 +85,7 @@ export default function AdminOrders() {
     const { data } = await supabase
       .from('orders')
       .select('*, order_items(*, foods(name, image))')
+      .eq('source', 'online') 
       .order('created_at', { ascending: false })
     setOrders(data || [])
     setLoading(false)
