@@ -9,6 +9,7 @@ export const useAuthStore = create((set, get) => ({
 
   setUser: (user) => set({ user }),
   setProfile: (profile) => set({ profile }),
+  setLoading: (loading) => set({ loading }),
 
   fetchProfile: async (userId) => {
     const { data } = await supabase
@@ -20,22 +21,27 @@ export const useAuthStore = create((set, get) => ({
     if (data) {
       set({ profile: data })
 
-      // Fetch permissions berdasarkan role
-      if (data.role === 'superadmin') {
-        // superadmin punya semua permission
+      if (data.role === 'admin') {
+        // admin punya semua permission
         set({ permissions: ['all'] })
+      } else if (data.role === 'staff') {
+        // staff hanya kasir + lihat pesanan online
+        set({
+          permissions: [
+            'view_kasir',
+            'create_kasir_transaction',
+            'view_kasir_history',
+            'view_orders',
+          ]
+        })
       } else {
-        const { data: perms } = await supabase
-          .from('role_permissions')
-          .select('permission')
-          .eq('role', data.role)
-        set({ permissions: perms?.map(p => p.permission) || [] })
+        // customer — tidak ada akses admin
+        set({ permissions: [] })
       }
     }
     return data
   },
 
-  // Helper: cek permission
   can: (permission) => {
     const { permissions } = get()
     return permissions.includes('all') || permissions.includes(permission)
@@ -43,6 +49,6 @@ export const useAuthStore = create((set, get) => ({
 
   logout: async () => {
     await supabase.auth.signOut()
-    set({ user: null, profile: null, permissions: [] })
+    set({ user: null, profile: null, permissions: [], loading: false })
   },
 }))

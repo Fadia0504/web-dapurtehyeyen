@@ -10,9 +10,8 @@ import {
 
 export default function AdminSidebar() {
   const { pathname } = useLocation()
-  const { profile, can } = useAuthStore()
-  const isSuperAdmin = profile?.role === 'superadmin'
-  const isAdmin = profile?.role === 'admin' || isSuperAdmin
+  const { profile } = useAuthStore()
+  const isAdmin = profile?.role === 'admin'
   const isStaff = profile?.role === 'staff'
 
   const handleLogout = async () => {
@@ -22,10 +21,11 @@ export default function AdminSidebar() {
 
   const NavItem = ({ to, icon: Icon, label, show = true }) => {
     if (!show) return null
+    const active = pathname === to || (to !== '/admin' && pathname.startsWith(to))
     return (
       <Link to={to}
-        className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition mb-1 ${
-          pathname === to
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition mb-1 ${
+          active
             ? 'bg-orange-50 text-orange-500'
             : 'text-gray-600 hover:bg-gray-50 hover:text-orange-500'
         }`}>
@@ -37,8 +37,10 @@ export default function AdminSidebar() {
 
   return (
     <aside className="w-56 bg-white shadow-sm flex flex-col py-6 fixed h-full z-20">
-      <div className="px-6 mb-6">
-        <Link to="/admin" className="flex items-center gap-2">
+
+      {/* Logo + Role Badge */}
+      <div className="px-6 mb-5">
+        <Link to={isAdmin ? '/admin' : '/admin/kasir'} className="flex items-center gap-2">
           <img
             src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/rawr.png"
             alt="Logo" className="h-8 w-auto"
@@ -46,51 +48,61 @@ export default function AdminSidebar() {
           <span className="font-black text-orange-500 text-base leading-tight">Dapur Teh Yeyen</span>
         </Link>
 
-        {/* Role Badge */}
-        <div className={`mt-3 flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold w-fit ${
-          isSuperAdmin ? 'bg-purple-100 text-purple-600'
-          : isAdmin ? 'bg-blue-100 text-blue-600'
-          : 'bg-green-100 text-green-600'
+        <div className={`mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+          isAdmin ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'
         }`}>
           <ShieldCheckIcon className="w-3 h-3" />
-          {isSuperAdmin ? 'Super Admin' : isAdmin ? 'Admin' : 'Staff'}
+          {isAdmin ? 'Admin' : 'Staff'}
         </div>
-      </div>
-
-      <div className="px-3 mb-2">
-        <NavItem to="/admin" icon={HomeIcon} label="Dashboard" show={can('view_dashboard')} />
       </div>
 
       <div className="flex-1 overflow-y-auto">
 
-        {/* MANAGEMENT */}
+        {/* DASHBOARD — admin only */}
+        {isAdmin && (
+          <div className="px-3 mb-2">
+            <NavItem to="/admin" icon={HomeIcon} label="Dashboard" />
+          </div>
+        )}
+
+        {/* KASIR — staff & admin bisa */}
         <div className="px-3 mb-4">
-          <p className="text-xs text-gray-400 font-semibold px-4 mb-2">MANAGEMENT</p>
-          <NavItem to="/admin/orders" icon={ShoppingBagIcon} label="Pesanan Online" show={can('view_orders')} />
-          <NavItem to="/admin/kasir" icon={CalculatorIcon} label="Kasir" show={can('view_kasir')} />
-          <NavItem to="/admin/kasir/history" icon={ClockIcon} label="Riwayat Kasir" show={can('view_kasir')} />
-          <NavItem to="/admin/foods" icon={CakeIcon} label="Menu Makanan" show={can('manage_foods') || can('view_foods')} />
-          <NavItem to="/admin/categories" icon={TagIcon} label="Kategori" show={can('view_categories')} />
-          <NavItem to="/admin/customers" icon={UserGroupIcon} label="Pelanggan" show={can('view_customers')} />
+          <p className="text-xs text-gray-400 font-semibold px-4 mb-2">KASIR</p>
+          <NavItem to="/admin/kasir" icon={CalculatorIcon} label="Kasir" />
+          <NavItem to="/admin/kasir/history" icon={ClockIcon} label="Riwayat Transaksi" />
         </div>
 
-        {/* SISTEM */}
-        <div className="px-3 mb-4">
-          <p className="text-xs text-gray-400 font-semibold px-4 mb-2">SISTEM</p>
-          <NavItem to="/admin/reviews" icon={StarIcon} label="Ulasan & Testimoni" show={can('view_reviews')} />
-          <NavItem to="/admin/reports" icon={DocumentChartBarIcon} label="Laporan" show={can('view_reports')} />
-          <NavItem to="/admin/settings" icon={CogIcon} label="Pengaturan" show={can('view_settings')} />
-        </div>
-
-        {/* SUPER ADMIN ONLY */}
-        {isSuperAdmin && (
+        {/* PESANAN ONLINE — admin only */}
+        {isAdmin && (
           <div className="px-3 mb-4">
-            <p className="text-xs text-purple-400 font-semibold px-4 mb-2">SUPER ADMIN</p>
-            <NavItem to="/admin/manage-roles" icon={ShieldCheckIcon} label="Kelola Role & Akses" show={true} />
+            <p className="text-xs text-gray-400 font-semibold px-4 mb-2">PESANAN</p>
+            <NavItem to="/admin/orders" icon={ShoppingBagIcon} label="Pesanan Online" />
+          </div>
+        )}
+
+        {/* MANAGEMENT — admin only */}
+        {isAdmin && (
+          <div className="px-3 mb-4">
+            <p className="text-xs text-gray-400 font-semibold px-4 mb-2">MANAGEMENT</p>
+            <NavItem to="/admin/foods" icon={CakeIcon} label="Menu Makanan" />
+            <NavItem to="/admin/categories" icon={TagIcon} label="Kategori" />
+            <NavItem to="/admin/customers" icon={UserGroupIcon} label="Pelanggan" />
+          </div>
+        )}
+
+        {/* SISTEM — admin only */}
+        {isAdmin && (
+          <div className="px-3 mb-4">
+            <p className="text-xs text-gray-400 font-semibold px-4 mb-2">SISTEM</p>
+            <NavItem to="/admin/reviews" icon={StarIcon} label="Ulasan & Testimoni" />
+            <NavItem to="/admin/reports" icon={DocumentChartBarIcon} label="Laporan" />
+            <NavItem to="/admin/settings" icon={CogIcon} label="Pengaturan" />
+            <NavItem to="/admin/manage-roles" icon={ShieldCheckIcon} label="Kelola Role" />
           </div>
         )}
       </div>
 
+      {/* Logout */}
       <div className="px-3">
         <button onClick={handleLogout}
           className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-500 hover:bg-red-50 hover:text-red-500 text-sm font-medium transition w-full">

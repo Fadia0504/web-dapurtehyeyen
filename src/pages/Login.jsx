@@ -58,20 +58,16 @@ export default function Login() {
       }
 
       if (data.user) {
-        await fetchProfile(data.user.id)
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', data.user.id)
-          .single()
+        const profile = await fetchProfile(data.user.id)
 
-        const isAdmin = profileData?.role === 'admin'
+        // admin & staff masuk ke /admin, customer ke /
+        const isAdminOrStaff = profile?.role === 'admin' || profile?.role === 'staff'
 
         await Swal.fire({
           icon: 'success',
           title: `Selamat datang! 👋`,
-          text: isAdmin
-            ? 'Kamu berhasil masuk sebagai Admin.'
+          text: isAdminOrStaff
+            ? `Kamu berhasil masuk sebagai ${profile?.role === 'admin' ? 'Admin' : 'Staff'}.`
             : 'Kamu berhasil masuk. Selamat menikmati!',
           confirmButtonColor: '#f97316',
           confirmButtonText: 'Lanjutkan',
@@ -81,7 +77,7 @@ export default function Login() {
           customClass: { popup: 'rounded-2xl' },
         })
 
-        navigate(isAdmin ? '/admin' : '/')
+        navigate(isAdminOrStaff ? '/admin' : '/')
       }
     } catch (err) {
       Swal.fire({
