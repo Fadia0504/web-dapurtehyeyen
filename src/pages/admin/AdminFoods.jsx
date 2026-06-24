@@ -5,7 +5,8 @@ import AdminNotifBell from '../../components/admin/AdminNotifBell'
 import {
   MagnifyingGlassIcon, PlusIcon, PencilIcon, TrashIcon,
   XMarkIcon, CloudArrowUpIcon, ChevronDownIcon,
-  ArrowRightOnRectangleIcon, Cog6ToothIcon, CheckIcon
+  ArrowRightOnRectangleIcon, Cog6ToothIcon, CheckIcon,
+  GlobeAltIcon, CalculatorIcon
 } from '@heroicons/react/24/outline'
 import { useAuthStore } from '../../store/authStore'
 import Swal from 'sweetalert2'
@@ -20,6 +21,7 @@ export default function AdminFoods() {
   const [search, setSearch] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
+  const [menuType, setMenuType] = useState('online') // 'online' | 'offline'
   const [showPanel, setShowPanel] = useState(false)
   const [showOptionsPanel, setShowOptionsPanel] = useState(false)
   const [editFood, setEditFood] = useState(null)
@@ -37,6 +39,7 @@ export default function AdminFoods() {
   const [form, setForm] = useState({
     name: '', category_id: '', description: '',
     price: '', is_available: true, unit: 'porsi', min_order: 1,
+    is_offline: false,
   })
 
   useEffect(() => { fetchData() }, [])
@@ -114,10 +117,7 @@ export default function AdminFoods() {
       cancelButtonColor: '#e5e7eb',
       confirmButtonText: 'Ya, Keluar',
       cancelButtonText: 'Batal',
-      customClass: {
-        popup: 'rounded-2xl',
-        cancelButton: '!text-gray-700',
-      },
+      customClass: { popup: 'rounded-2xl', cancelButton: '!text-gray-700' },
     })
     if (!result.isConfirmed) return
     await supabase.auth.signOut()
@@ -126,7 +126,11 @@ export default function AdminFoods() {
 
   const openAdd = () => {
     setEditFood(null)
-    setForm({ name: '', category_id: '', description: '', price: '', is_available: true, unit: 'porsi', min_order: 1 })
+    setForm({
+      name: '', category_id: '', description: '',
+      price: '', is_available: true, unit: 'porsi', min_order: 1,
+      is_offline: menuType === 'offline',
+    })
     setImageFile(null)
     setImagePreview(null)
     setShowPanel(true)
@@ -142,6 +146,7 @@ export default function AdminFoods() {
       is_available: food.is_available,
       unit: food.unit || 'porsi',
       min_order: food.min_order || 1,
+      is_offline: food.is_offline || false,
     })
     setImagePreview(food.image || null)
     setImageFile(null)
@@ -159,26 +164,12 @@ export default function AdminFoods() {
 
   const handleSave = async () => {
     if (!form.name || !form.category_id || !form.price) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Form Tidak Lengkap',
-        text: 'Nama, kategori, dan harga wajib diisi!',
-        confirmButtonColor: '#f97316',
-        confirmButtonText: 'OK',
-        customClass: { popup: 'rounded-2xl' },
-      })
+      Swal.fire({ icon: 'warning', title: 'Form Tidak Lengkap', text: 'Nama, kategori, dan harga wajib diisi!', confirmButtonColor: '#f97316', customClass: { popup: 'rounded-2xl' } })
       return
     }
     const finalPrice = parsePrice(form.price)
     if (isNaN(finalPrice) || finalPrice <= 0) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Harga Tidak Valid',
-        text: 'Masukkan angka saja. Contoh: 15000',
-        confirmButtonColor: '#f97316',
-        confirmButtonText: 'OK',
-        customClass: { popup: 'rounded-2xl' },
-      })
+      Swal.fire({ icon: 'warning', title: 'Harga Tidak Valid', text: 'Masukkan angka saja. Contoh: 15000', confirmButtonColor: '#f97316', customClass: { popup: 'rounded-2xl' } })
       return
     }
     setSaving(true)
@@ -198,6 +189,7 @@ export default function AdminFoods() {
         description: form.description, price: finalPrice,
         is_available: form.is_available, unit: form.unit,
         min_order: Number(form.min_order), image: imageUrl,
+        is_offline: form.is_offline,
       }
       if (editFood) {
         const { error } = await supabase.from('foods').update(payload).eq('id', editFood.id)
@@ -211,22 +203,11 @@ export default function AdminFoods() {
       Swal.fire({
         icon: 'success',
         title: editFood ? 'Menu Diperbarui!' : 'Menu Ditambahkan!',
-        text: `${form.name} berhasil ${editFood ? 'diperbarui' : 'ditambahkan'}.`,
-        confirmButtonColor: '#f97316',
-        timer: 2000,
-        timerProgressBar: true,
-        showConfirmButton: false,
+        timer: 2000, timerProgressBar: true, showConfirmButton: false,
         customClass: { popup: 'rounded-2xl' },
       })
     } catch (err) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Gagal Menyimpan',
-        text: err.message,
-        confirmButtonColor: '#f97316',
-        confirmButtonText: 'OK',
-        customClass: { popup: 'rounded-2xl' },
-      })
+      Swal.fire({ icon: 'error', title: 'Gagal Menyimpan', text: err.message, confirmButtonColor: '#f97316', customClass: { popup: 'rounded-2xl' } })
     } finally {
       setSaving(false)
     }
@@ -234,61 +215,32 @@ export default function AdminFoods() {
 
   const handleDelete = async (food) => {
     const result = await Swal.fire({
-      icon: 'warning',
-      title: 'Hapus Menu?',
+      icon: 'warning', title: 'Hapus Menu?',
       html: `Menu <strong>${food.name}</strong> akan dihapus secara permanen.`,
       showCancelButton: true,
-      confirmButtonColor: '#ef4444',
-      cancelButtonColor: '#e5e7eb',
-      confirmButtonText: 'Ya, Hapus',
-      cancelButtonText: 'Batal',
-      customClass: {
-        popup: 'rounded-2xl',
-        cancelButton: '!text-gray-700',
-      },
+      confirmButtonColor: '#ef4444', cancelButtonColor: '#e5e7eb',
+      confirmButtonText: 'Ya, Hapus', cancelButtonText: 'Batal',
+      customClass: { popup: 'rounded-2xl', cancelButton: '!text-gray-700' },
     })
     if (!result.isConfirmed) return
     await supabase.from('foods').delete().eq('id', food.id)
     await fetchData()
-    Swal.fire({
-      icon: 'success',
-      title: 'Berhasil Dihapus',
-      text: `${food.name} telah dihapus.`,
-      confirmButtonColor: '#f97316',
-      timer: 1800,
-      timerProgressBar: true,
-      showConfirmButton: false,
-      customClass: { popup: 'rounded-2xl' },
-    })
+    Swal.fire({ icon: 'success', title: 'Berhasil Dihapus', timer: 1800, timerProgressBar: true, showConfirmButton: false, customClass: { popup: 'rounded-2xl' } })
   }
 
   const handleToggleStatus = async (food) => {
     const newStatus = !food.is_available
     await supabase.from('foods').update({ is_available: newStatus }).eq('id', food.id)
     await fetchData()
-    const Toast = Swal.mixin({
-      toast: true,
-      position: 'bottom-end',
-      showConfirmButton: false,
-      timer: 2000,
-      timerProgressBar: true,
-    })
-    Toast.fire({
-      icon: newStatus ? 'success' : 'info',
-      title: `${food.name} ${newStatus ? 'diaktifkan' : 'dinonaktifkan'}`,
-    })
+    Swal.mixin({ toast: true, position: 'bottom-end', showConfirmButton: false, timer: 2000 })
+      .fire({ icon: newStatus ? 'success' : 'info', title: `${food.name} ${newStatus ? 'diaktifkan' : 'dinonaktifkan'}` })
   }
 
-  // === OPTION GROUP FUNCTIONS ===
+  // === OPTION GROUPS ===
   const addOptionGroup = () => {
     setOptionGroups(prev => [...prev, {
-      id: `new-${Date.now()}`,
-      isNew: true,
-      food_id: editFood?.id,
-      group_name: '',
-      group_type: 'single',
-      required: true,
-      food_option_items: [],
+      id: `new-${Date.now()}`, isNew: true, food_id: editFood?.id,
+      group_name: '', group_type: 'single', required: true, food_option_items: [],
     }])
   }
 
@@ -298,55 +250,34 @@ export default function AdminFoods() {
 
   const deleteOptionGroup = async (group) => {
     const result = await Swal.fire({
-      icon: 'warning',
-      title: 'Hapus Grup?',
+      icon: 'warning', title: 'Hapus Grup?',
       text: `Grup "${group.group_name || 'ini'}" beserta semua pilihannya akan dihapus.`,
       showCancelButton: true,
-      confirmButtonColor: '#ef4444',
-      cancelButtonColor: '#e5e7eb',
-      confirmButtonText: 'Ya, Hapus',
-      cancelButtonText: 'Batal',
+      confirmButtonColor: '#ef4444', cancelButtonColor: '#e5e7eb',
+      confirmButtonText: 'Ya, Hapus', cancelButtonText: 'Batal',
       customClass: { popup: 'rounded-2xl', cancelButton: '!text-gray-700' },
     })
     if (!result.isConfirmed) return
-    if (!group.isNew) {
-      await supabase.from('food_options').delete().eq('id', group.id)
-    }
+    if (!group.isNew) await supabase.from('food_options').delete().eq('id', group.id)
     setOptionGroups(prev => prev.filter(g => g.id !== group.id))
   }
 
   const addOptionItem = (groupId) => {
     setOptionGroups(prev => prev.map(g => {
       if (g.id !== groupId) return g
-      return {
-        ...g,
-        food_option_items: [...(g.food_option_items || []), {
-          id: `new-item-${Date.now()}`,
-          isNew: true,
-          option_id: groupId,
-          name: '',
-          extra_price: 0,
-        }]
-      }
+      return { ...g, food_option_items: [...(g.food_option_items || []), { id: `new-item-${Date.now()}`, isNew: true, option_id: groupId, name: '', extra_price: 0 }] }
     }))
   }
 
   const updateOptionItem = (groupId, itemId, field, value) => {
     setOptionGroups(prev => prev.map(g => {
       if (g.id !== groupId) return g
-      return {
-        ...g,
-        food_option_items: g.food_option_items.map(item =>
-          item.id === itemId ? { ...item, [field]: value } : item
-        )
-      }
+      return { ...g, food_option_items: g.food_option_items.map(item => item.id === itemId ? { ...item, [field]: value } : item) }
     }))
   }
 
   const deleteOptionItem = async (groupId, item) => {
-    if (!item.isNew) {
-      await supabase.from('food_option_items').delete().eq('id', item.id)
-    }
+    if (!item.isNew) await supabase.from('food_option_items').delete().eq('id', item.id)
     setOptionGroups(prev => prev.map(g => {
       if (g.id !== groupId) return g
       return { ...g, food_option_items: g.food_option_items.filter(i => i.id !== item.id) }
@@ -361,113 +292,68 @@ export default function AdminFoods() {
         let groupId = group.id
         if (group.isNew) {
           const { data: newGroup, error } = await supabase.from('food_options').insert({
-            food_id: editFood.id,
-            group_name: group.group_name,
-            group_type: group.group_type,
-            required: group.required,
+            food_id: editFood.id, group_name: group.group_name,
+            group_type: group.group_type, required: group.required,
           }).select().single()
           if (error) throw error
           groupId = newGroup.id
         } else {
           await supabase.from('food_options').update({
-            group_name: group.group_name,
-            group_type: group.group_type,
-            required: group.required,
+            group_name: group.group_name, group_type: group.group_type, required: group.required,
           }).eq('id', group.id)
         }
         for (const item of (group.food_option_items || [])) {
           if (!item.name.trim()) continue
           if (item.isNew) {
-            await supabase.from('food_option_items').insert({
-              option_id: groupId,
-              name: item.name,
-              extra_price: Number(item.extra_price) || 0,
-            })
+            await supabase.from('food_option_items').insert({ option_id: groupId, name: item.name, extra_price: Number(item.extra_price) || 0 })
           } else {
-            await supabase.from('food_option_items').update({
-              name: item.name,
-              extra_price: Number(item.extra_price) || 0,
-            }).eq('id', item.id)
+            await supabase.from('food_option_items').update({ name: item.name, extra_price: Number(item.extra_price) || 0 }).eq('id', item.id)
           }
         }
       }
-      const { data: saved } = await supabase
-        .from('food_options').select('*, food_option_items(*)')
-        .eq('food_id', editFood.id).order('created_at')
+      const { data: saved } = await supabase.from('food_options').select('*, food_option_items(*)').eq('food_id', editFood.id).order('created_at')
       setOptionGroups(saved || [])
       setTemplateLoaded(false)
-      Swal.fire({
-        icon: 'success',
-        title: 'Pilihan Disimpan!',
-        text: 'Semua pilihan kondimen berhasil disimpan.',
-        confirmButtonColor: '#f97316',
-        timer: 2000,
-        timerProgressBar: true,
-        showConfirmButton: false,
-        customClass: { popup: 'rounded-2xl' },
-      })
+      Swal.fire({ icon: 'success', title: 'Pilihan Disimpan!', timer: 2000, timerProgressBar: true, showConfirmButton: false, customClass: { popup: 'rounded-2xl' } })
     } catch (err) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Gagal Menyimpan',
-        text: 'Gagal menyimpan pilihan: ' + err.message,
-        confirmButtonColor: '#f97316',
-        confirmButtonText: 'OK',
-        customClass: { popup: 'rounded-2xl' },
-      })
+      Swal.fire({ icon: 'error', title: 'Gagal Menyimpan', text: err.message, confirmButtonColor: '#f97316', customClass: { popup: 'rounded-2xl' } })
     } finally {
       setSavingOptions(false)
     }
   }
 
   const handleAddCateringTemplate = () => {
-    const template = [
-      {
-        id: `new-${Date.now()}-1`, isNew: true, food_id: editFood?.id,
-        group_name: 'Pilih 1 Lauk', group_type: 'single', required: true,
-        food_option_items: [
-          { id: `new-item-${Date.now()}-1`, isNew: true, name: 'Ayam Goreng Lengkuas', extra_price: 0 },
-          { id: `new-item-${Date.now()}-2`, isNew: true, name: 'Ayam Bakar Madu', extra_price: 0 },
-          { id: `new-item-${Date.now()}-3`, isNew: true, name: 'Daging Rendang', extra_price: 2000 },
-          { id: `new-item-${Date.now()}-4`, isNew: true, name: 'Ikan Dori Goreng Tepung', extra_price: 2000 },
-          { id: `new-item-${Date.now()}-5`, isNew: true, name: 'Telur Balado', extra_price: 0 },
-        ]
-      },
-      {
-        id: `new-${Date.now()}-2`, isNew: true, food_id: editFood?.id,
-        group_name: 'Pilih 1 Tumisan', group_type: 'single', required: true,
-        food_option_items: [
-          { id: `new-item-${Date.now()}-6`, isNew: true, name: 'Capcay', extra_price: 0 },
-          { id: `new-item-${Date.now()}-7`, isNew: true, name: 'Tumis Buncis Wortel', extra_price: 0 },
-          { id: `new-item-${Date.now()}-8`, isNew: true, name: 'Tumis Kangkung Terasi', extra_price: 0 },
-          { id: `new-item-${Date.now()}-9`, isNew: true, name: 'Tumis Tahu Kecap', extra_price: 0 },
-          { id: `new-item-${Date.now()}-10`, isNew: true, name: 'Sayur Asem', extra_price: 0 },
-        ]
-      },
-      {
-        id: `new-${Date.now()}-3`, isNew: true, food_id: editFood?.id,
-        group_name: 'Pilih 1 Sambal', group_type: 'single', required: true,
-        food_option_items: [
-          { id: `new-item-${Date.now()}-11`, isNew: true, name: 'Sambal Terasi', extra_price: 0 },
-          { id: `new-item-${Date.now()}-12`, isNew: true, name: 'Sambal Bawang', extra_price: 0 },
-          { id: `new-item-${Date.now()}-13`, isNew: true, name: 'Sambal Matah', extra_price: 0 },
-          { id: `new-item-${Date.now()}-14`, isNew: true, name: 'Sambal Ijo', extra_price: 0 },
-          { id: `new-item-${Date.now()}-15`, isNew: true, name: 'Sambal Tomat', extra_price: 0 },
-        ]
-      },
-      {
-        id: `new-${Date.now()}-4`, isNew: true, food_id: editFood?.id,
-        group_name: 'Tambah Add On', group_type: 'multiple', required: false,
-        food_option_items: [
-          { id: `new-item-${Date.now()}-16`, isNew: true, name: 'Telur Dadar', extra_price: 2000 },
-          { id: `new-item-${Date.now()}-17`, isNew: true, name: 'Perkedel Kentang (2 pcs)', extra_price: 2000 },
-          { id: `new-item-${Date.now()}-18`, isNew: true, name: 'Kerupuk', extra_price: 1000 },
-          { id: `new-item-${Date.now()}-19`, isNew: true, name: 'Buah Potong', extra_price: 3000 },
-          { id: `new-item-${Date.now()}-20`, isNew: true, name: 'Puding Cup', extra_price: 3000 },
-        ]
-      },
-    ]
-    setOptionGroups(template)
+    const t = Date.now()
+    setOptionGroups([
+      { id: `new-${t}-1`, isNew: true, food_id: editFood?.id, group_name: 'Pilih 1 Lauk', group_type: 'single', required: true, food_option_items: [
+        { id: `new-item-${t}-1`, isNew: true, name: 'Ayam Goreng Lengkuas', extra_price: 0 },
+        { id: `new-item-${t}-2`, isNew: true, name: 'Ayam Bakar Madu', extra_price: 0 },
+        { id: `new-item-${t}-3`, isNew: true, name: 'Daging Rendang', extra_price: 2000 },
+        { id: `new-item-${t}-4`, isNew: true, name: 'Ikan Dori Goreng Tepung', extra_price: 2000 },
+        { id: `new-item-${t}-5`, isNew: true, name: 'Telur Balado', extra_price: 0 },
+      ]},
+      { id: `new-${t}-2`, isNew: true, food_id: editFood?.id, group_name: 'Pilih 1 Tumisan', group_type: 'single', required: true, food_option_items: [
+        { id: `new-item-${t}-6`, isNew: true, name: 'Capcay', extra_price: 0 },
+        { id: `new-item-${t}-7`, isNew: true, name: 'Tumis Buncis Wortel', extra_price: 0 },
+        { id: `new-item-${t}-8`, isNew: true, name: 'Tumis Kangkung Terasi', extra_price: 0 },
+        { id: `new-item-${t}-9`, isNew: true, name: 'Tumis Tahu Kecap', extra_price: 0 },
+        { id: `new-item-${t}-10`, isNew: true, name: 'Sayur Asem', extra_price: 0 },
+      ]},
+      { id: `new-${t}-3`, isNew: true, food_id: editFood?.id, group_name: 'Pilih 1 Sambal', group_type: 'single', required: true, food_option_items: [
+        { id: `new-item-${t}-11`, isNew: true, name: 'Sambal Terasi', extra_price: 0 },
+        { id: `new-item-${t}-12`, isNew: true, name: 'Sambal Bawang', extra_price: 0 },
+        { id: `new-item-${t}-13`, isNew: true, name: 'Sambal Matah', extra_price: 0 },
+        { id: `new-item-${t}-14`, isNew: true, name: 'Sambal Ijo', extra_price: 0 },
+        { id: `new-item-${t}-15`, isNew: true, name: 'Sambal Tomat', extra_price: 0 },
+      ]},
+      { id: `new-${t}-4`, isNew: true, food_id: editFood?.id, group_name: 'Tambah Add On', group_type: 'multiple', required: false, food_option_items: [
+        { id: `new-item-${t}-16`, isNew: true, name: 'Telur Dadar', extra_price: 2000 },
+        { id: `new-item-${t}-17`, isNew: true, name: 'Perkedel Kentang (2 pcs)', extra_price: 2000 },
+        { id: `new-item-${t}-18`, isNew: true, name: 'Kerupuk', extra_price: 1000 },
+        { id: `new-item-${t}-19`, isNew: true, name: 'Buah Potong', extra_price: 3000 },
+        { id: `new-item-${t}-20`, isNew: true, name: 'Puding Cup', extra_price: 3000 },
+      ]},
+    ])
     setTemplateLoaded(true)
   }
 
@@ -475,7 +361,8 @@ export default function AdminFoods() {
     const matchSearch = f.name.toLowerCase().includes(search.toLowerCase())
     const matchCat = !filterCategory || f.category_id === filterCategory
     const matchStatus = filterStatus === '' ? true : filterStatus === 'aktif' ? f.is_available : !f.is_available
-    return matchSearch && matchCat && matchStatus
+    const matchType = menuType === 'offline' ? f.is_offline === true : f.is_offline !== true
+    return matchSearch && matchCat && matchStatus && matchType
   })
   const totalPages = Math.ceil(filtered.length / perPage)
   const paginated = filtered.slice((page - 1) * perPage, page * perPage)
@@ -512,7 +399,7 @@ export default function AdminFoods() {
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-semibold text-gray-800">{adminName.split(' ')[0]}</p>
-                  <p className="text-xs text-gray-400">Super Administrator</p>
+                  <p className="text-xs text-gray-400">Administrator</p>
                 </div>
                 <ChevronDownIcon className={`w-4 h-4 text-gray-400 transition-transform ${adminDropdown ? 'rotate-180' : ''}`} />
               </button>
@@ -532,7 +419,37 @@ export default function AdminFoods() {
         <main className="p-8">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Kelola Menu</h1>
-            <p className="text-gray-400 text-sm mt-1">Kelola semua menu makanan yang tersedia.</p>
+            <p className="text-gray-400 text-sm mt-1">Kelola menu makanan online dan offline (kasir).</p>
+          </div>
+
+          {/* Tab Online vs Offline */}
+          <div className="flex gap-3 mb-5">
+            <button onClick={() => { setMenuType('online'); setPage(1) }}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition border ${
+                menuType === 'online'
+                  ? 'bg-orange-500 text-white border-orange-500'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
+              }`}>
+              <GlobeAltIcon className="w-4 h-4" />
+              Menu Online
+            </button>
+            <button onClick={() => { setMenuType('offline'); setPage(1) }}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition border ${
+                menuType === 'offline'
+                  ? 'bg-blue-500 text-white border-blue-500'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+              }`}>
+              <CalculatorIcon className="w-4 h-4" />
+              Menu Kasir (Offline)
+            </button>
+            <div className="ml-auto flex items-center">
+              <p className="text-xs text-gray-400">
+                {menuType === 'online'
+                  ? '🌐 Menu yang tampil di website pelanggan'
+                  : '🧾 Menu yang tersedia di kasir untuk penjualan langsung'
+                }
+              </p>
+            </div>
           </div>
 
           {/* Filter Bar */}
@@ -555,9 +472,13 @@ export default function AdminFoods() {
               <option value="nonaktif">Nonaktif</option>
             </select>
             <button onClick={openAdd}
-              className="ml-auto flex items-center gap-2 bg-orange-500 text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-orange-600 transition shadow-sm shadow-orange-200">
+              className={`ml-auto flex items-center gap-2 text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition shadow-sm ${
+                menuType === 'offline'
+                  ? 'bg-blue-500 hover:bg-blue-600 shadow-blue-200'
+                  : 'bg-orange-500 hover:bg-orange-600 shadow-orange-200'
+              }`}>
               <PlusIcon className="w-4 h-4" />
-              Tambah Menu
+              Tambah Menu {menuType === 'offline' ? 'Kasir' : 'Online'}
             </button>
           </div>
 
@@ -569,6 +490,7 @@ export default function AdminFoods() {
                   <th className="px-6 py-4 text-xs font-semibold text-gray-400">Menu</th>
                   <th className="px-4 py-4 text-xs font-semibold text-gray-400">Kategori</th>
                   <th className="px-4 py-4 text-xs font-semibold text-gray-400">Harga</th>
+                  <th className="px-4 py-4 text-xs font-semibold text-gray-400">Tipe</th>
                   <th className="px-4 py-4 text-xs font-semibold text-gray-400">Status</th>
                   <th className="px-4 py-4 text-xs font-semibold text-gray-400">Aksi</th>
                 </tr>
@@ -577,14 +499,14 @@ export default function AdminFoods() {
                 {loading ? (
                   [...Array(5)].map((_, i) => (
                     <tr key={i} className="border-b border-gray-50">
-                      <td colSpan={5} className="px-6 py-4">
+                      <td colSpan={6} className="px-6 py-4">
                         <div className="h-12 bg-gray-100 rounded-xl animate-pulse" />
                       </td>
                     </tr>
                   ))
                 ) : paginated.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-center py-14 text-gray-400">
+                    <td colSpan={6} className="text-center py-14 text-gray-400">
                       <MagnifyingGlassIcon className="w-10 h-10 text-gray-200 mx-auto mb-2" />
                       <p className="font-medium text-gray-500">Tidak ada menu ditemukan</p>
                       <p className="text-sm">Coba ubah kata kunci atau filter</p>
@@ -619,6 +541,13 @@ export default function AdminFoods() {
                     <td className="px-4 py-4">
                       <p className="font-semibold text-gray-800 text-sm">Rp {food.price?.toLocaleString('id-ID')}</p>
                       <p className="text-xs text-gray-400">/{food.unit || 'porsi'}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                        food.is_offline ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'
+                      }`}>
+                        {food.is_offline ? '🧾 Kasir' : '🌐 Online'}
+                      </span>
                     </td>
                     <td className="px-4 py-4">
                       <button onClick={() => handleToggleStatus(food)}
@@ -674,7 +603,7 @@ export default function AdminFoods() {
         </main>
       </div>
 
-      {/* ===== PANEL TAMBAH/EDIT MENU ===== */}
+      {/* ===== PANEL TAMBAH/EDIT ===== */}
       {showPanel && (
         <div className="fixed inset-0 z-50 flex">
           <div className="flex-1 bg-black/30" onClick={() => setShowPanel(false)} />
@@ -683,7 +612,7 @@ export default function AdminFoods() {
               <div>
                 <h2 className="font-bold text-gray-900">{editFood ? 'Edit Menu' : 'Tambah Menu'}</h2>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  {editFood ? 'Perbarui informasi menu' : 'Isi detail menu baru'}
+                  {menuType === 'offline' ? '🧾 Menu Kasir (Offline)' : '🌐 Menu Online'}
                 </p>
               </div>
               <button onClick={() => setShowPanel(false)}
@@ -692,6 +621,8 @@ export default function AdminFoods() {
               </button>
             </div>
             <div className="p-6 space-y-5">
+
+              {/* Informasi Dasar */}
               <div>
                 <h3 className="font-semibold text-gray-800 mb-4">Informasi Dasar</h3>
                 <div className="space-y-4">
@@ -719,6 +650,7 @@ export default function AdminFoods() {
                 </div>
               </div>
 
+              {/* Harga */}
               <div>
                 <h3 className="font-semibold text-gray-800 mb-4">Harga</h3>
                 <div className="space-y-4">
@@ -736,9 +668,7 @@ export default function AdminFoods() {
                     {form.price && Number(form.price) > 0 && (
                       <div className="mt-2 flex items-center gap-2 bg-orange-50 rounded-xl px-3 py-2">
                         <span className="text-xs text-gray-500">Preview:</span>
-                        <span className="text-sm font-bold text-orange-500">
-                          Rp {Number(form.price).toLocaleString('id-ID')}
-                        </span>
+                        <span className="text-sm font-bold text-orange-500">Rp {Number(form.price).toLocaleString('id-ID')}</span>
                       </div>
                     )}
                   </div>
@@ -763,6 +693,7 @@ export default function AdminFoods() {
                 </div>
               </div>
 
+              {/* Gambar */}
               <div>
                 <h3 className="font-semibold text-gray-800 mb-4">Gambar Menu</h3>
                 <label className="block cursor-pointer">
@@ -784,17 +715,38 @@ export default function AdminFoods() {
                 </label>
               </div>
 
+              {/* Status & Tipe */}
               <div>
-                <h3 className="font-semibold text-gray-800 mb-4">Status</h3>
-                <div className="flex items-center justify-between bg-gray-50 rounded-xl p-4">
-                  <div>
-                    <p className="font-medium text-gray-800 text-sm">Tampilkan ke Pelanggan</p>
-                    <p className="text-xs text-gray-400">Menu akan muncul di halaman menu</p>
+                <h3 className="font-semibold text-gray-800 mb-4">Status & Ketersediaan</h3>
+                <div className="space-y-3">
+                  {/* Toggle Aktif */}
+                  <div className="flex items-center justify-between bg-gray-50 rounded-xl p-4">
+                    <div>
+                      <p className="font-medium text-gray-800 text-sm">Tampilkan ke Pelanggan</p>
+                      <p className="text-xs text-gray-400">Menu aktif dan bisa dipesan</p>
+                    </div>
+                    <button onClick={() => setForm({ ...form, is_available: !form.is_available })}
+                      className={`w-12 h-6 rounded-full transition-colors relative ${form.is_available ? 'bg-orange-500' : 'bg-gray-200'}`}>
+                      <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all shadow-sm ${form.is_available ? 'left-6' : 'left-0.5'}`} />
+                    </button>
                   </div>
-                  <button onClick={() => setForm({ ...form, is_available: !form.is_available })}
-                    className={`w-12 h-6 rounded-full transition-colors relative ${form.is_available ? 'bg-orange-500' : 'bg-gray-200'}`}>
-                    <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all shadow-sm ${form.is_available ? 'left-6' : 'left-0.5'}`} />
-                  </button>
+
+                  {/* Toggle Online vs Offline */}
+                  <div className="flex items-center justify-between bg-blue-50 rounded-xl p-4">
+                    <div>
+                      <p className="font-medium text-gray-800 text-sm">Tersedia di Kasir (Offline)</p>
+                      <p className="text-xs text-gray-400">
+                        {form.is_offline
+                          ? '🧾 Menu ini hanya muncul di kasir'
+                          : '🌐 Menu ini muncul di website online'
+                        }
+                      </p>
+                    </div>
+                    <button onClick={() => setForm({ ...form, is_offline: !form.is_offline })}
+                      className={`w-12 h-6 rounded-full transition-colors relative ${form.is_offline ? 'bg-blue-500' : 'bg-gray-200'}`}>
+                      <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all shadow-sm ${form.is_offline ? 'left-6' : 'left-0.5'}`} />
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -838,9 +790,7 @@ export default function AdminFoods() {
                   <CheckIcon className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-sm text-green-700 font-semibold mb-0.5">Template Otomatis Dimuat</p>
-                    <p className="text-xs text-green-600 leading-relaxed">
-                      Pilihan kondimen sudah disalin otomatis. Edit sesuai kebutuhan lalu klik Simpan Semua.
-                    </p>
+                    <p className="text-xs text-green-600 leading-relaxed">Edit sesuai kebutuhan lalu klik Simpan Semua.</p>
                   </div>
                 </div>
               ) : (
@@ -876,10 +826,7 @@ export default function AdminFoods() {
                   <Cog6ToothIcon className="w-12 h-12 text-gray-200 mx-auto mb-3" />
                   <p className="font-semibold text-gray-700 mb-1">Belum ada pilihan kondimen</p>
                   <p className="text-xs text-gray-400 mb-4">
-                    {isCateringFood()
-                      ? 'Gunakan Template Catering untuk mengisi otomatis'
-                      : 'Klik Tambah Grup untuk menambahkan pilihan baru'
-                    }
+                    {isCateringFood() ? 'Gunakan Template Catering untuk mengisi otomatis' : 'Klik Tambah Grup untuk menambahkan pilihan baru'}
                   </p>
                   {isCateringFood() && (
                     <button onClick={handleAddCateringTemplate}
@@ -969,11 +916,10 @@ export default function AdminFoods() {
                   </button>
                   <button onClick={handleSaveOptions} disabled={savingOptions}
                     className="flex-1 bg-orange-500 text-white py-3 rounded-xl font-semibold text-sm hover:bg-orange-600 transition disabled:opacity-50 flex items-center justify-center gap-2">
-                    {savingOptions ? (
-                      <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Menyimpan...</>
-                    ) : (
-                      <><CheckIcon className="w-4 h-4" /> Simpan Semua Pilihan</>
-                    )}
+                    {savingOptions
+                      ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Menyimpan...</>
+                      : <><CheckIcon className="w-4 h-4" /> Simpan Semua Pilihan</>
+                    }
                   </button>
                 </div>
               )}

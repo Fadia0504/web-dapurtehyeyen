@@ -24,7 +24,6 @@ import AdminKasir from './pages/admin/AdminKasir'
 import AdminKasirHistory from './pages/admin/AdminKasirHistory'
 import AdminManageRoles from './pages/admin/AdminManageRoles'
 
-// Loading spinner
 function LoadingScreen() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -36,32 +35,26 @@ function LoadingScreen() {
   )
 }
 
-// Guard: hanya admin yang bisa akses
+// Hanya admin
 function AdminOnlyRoute({ children }) {
   const { user, profile, loading } = useAuthStore()
   if (loading) return <LoadingScreen />
   if (!user || !profile) return <Navigate to="/login" replace />
-  if (profile.role !== 'admin') {
-    // staff diarahkan ke kasir
-    if (profile.role === 'staff') return <Navigate to="/admin/kasir" replace />
-    // customer diarahkan ke home
-    return <Navigate to="/" replace />
-  }
+  if (profile.role === 'staff') return <Navigate to="/admin/kasir" replace />
+  if (profile.role !== 'admin') return <Navigate to="/" replace />
   return children
 }
 
-// Guard: admin & staff bisa akses (khusus kasir & riwayat)
+// Admin & staff
 function StaffRoute({ children }) {
   const { user, profile, loading } = useAuthStore()
   if (loading) return <LoadingScreen />
   if (!user || !profile) return <Navigate to="/login" replace />
-  if (profile.role !== 'admin' && profile.role !== 'staff') {
-    return <Navigate to="/" replace />
-  }
+  if (profile.role !== 'admin' && profile.role !== 'staff') return <Navigate to="/" replace />
   return children
 }
 
-// Guard: customer route — redirect admin/staff ke /admin
+// Customer only
 function CustomerRoute({ children }) {
   const { profile, loading } = useAuthStore()
   if (loading) return <LoadingScreen />
@@ -73,10 +66,9 @@ function CustomerRoute({ children }) {
 function App() {
   return (
     <Routes>
-
-      {/* ===== ADMIN ONLY (tidak termasuk kasir) ===== */}
+      {/* ===== ADMIN ONLY ===== */}
       <Route path="/admin" element={<AdminOnlyRoute><AdminDashboard /></AdminOnlyRoute>} />
-      <Route path="/admin/orders" element={<AdminOnlyRoute><AdminOrders /></AdminOnlyRoute>} />
+      <Route path="/admin/orders" element={<StaffRoute><AdminOrders /></StaffRoute>} />
       <Route path="/admin/foods" element={<AdminOnlyRoute><AdminFoods /></AdminOnlyRoute>} />
       <Route path="/admin/categories" element={<AdminOnlyRoute><AdminCategories /></AdminOnlyRoute>} />
       <Route path="/admin/customers" element={<AdminOnlyRoute><AdminCustomers /></AdminOnlyRoute>} />
@@ -84,11 +76,11 @@ function App() {
       <Route path="/admin/reports" element={<AdminOnlyRoute><AdminReports /></AdminOnlyRoute>} />
       <Route path="/admin/manage-roles" element={<AdminOnlyRoute><AdminManageRoles /></AdminOnlyRoute>} />
 
-      {/* ===== STAFF & ADMIN (kasir) ===== */}
+      {/* ===== STAFF & ADMIN ===== */}
       <Route path="/admin/kasir" element={<StaffRoute><AdminKasir /></StaffRoute>} />
       <Route path="/admin/kasir/history" element={<StaffRoute><AdminKasirHistory /></StaffRoute>} />
 
-      {/* ===== PUBLIC + CUSTOMER (dengan Navbar) ===== */}
+      {/* ===== PUBLIC + CUSTOMER ===== */}
       <Route path="/*" element={
         <>
           <Navbar />
@@ -100,7 +92,6 @@ function App() {
             <Route path="/contact" element={<Contact />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            {/* Customer only */}
             <Route path="/cart" element={<CustomerRoute><Cart /></CustomerRoute>} />
             <Route path="/checkout" element={<CustomerRoute><Checkout /></CustomerRoute>} />
             <Route path="/payment" element={<CustomerRoute><Payment /></CustomerRoute>} />
@@ -109,7 +100,6 @@ function App() {
           </Routes>
         </>
       } />
-
     </Routes>
   )
 }

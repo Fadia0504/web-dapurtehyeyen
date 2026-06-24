@@ -9,18 +9,18 @@ import {
 } from '@heroicons/react/24/outline'
 import Swal from 'sweetalert2'
 
-const ROLE_OPTIONS = ['customer', 'staff', 'admin', 'superadmin']
+const ROLE_OPTIONS = ['customer', 'staff', 'admin']
+
 const ROLE_COLORS = {
   customer: 'bg-gray-100 text-gray-600',
   staff: 'bg-green-100 text-green-600',
   admin: 'bg-blue-100 text-blue-600',
-  superadmin: 'bg-purple-100 text-purple-600',
 }
+
 const ROLE_LABELS = {
   customer: 'Customer',
   staff: 'Staff',
   admin: 'Admin',
-  superadmin: 'Super Admin',
 }
 
 export default function AdminManageRoles() {
@@ -57,12 +57,26 @@ export default function AdminManageRoles() {
   const handleSaveRole = async (userId) => {
     if (!editRole) return
     setSaving(true)
-    const { error } = await supabase.from('profiles').update({ role: editRole }).eq('id', userId)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ role: editRole })
+      .eq('id', userId)
+
     if (error) {
-      Swal.fire({ icon: 'error', title: 'Gagal', text: error.message, confirmButtonColor: '#f97316', customClass: { popup: 'rounded-2xl' } })
+      Swal.fire({
+        icon: 'error', title: 'Gagal Mengubah Role',
+        text: error.message, confirmButtonColor: '#f97316',
+        customClass: { popup: 'rounded-2xl' }
+      })
     } else {
-      Swal.fire({ icon: 'success', title: 'Role Diperbarui!', timer: 1500, showConfirmButton: false, customClass: { popup: 'rounded-2xl' } })
+      await Swal.fire({
+        icon: 'success', title: 'Role Diperbarui!',
+        text: `Role berhasil diubah menjadi ${ROLE_LABELS[editRole]}.`,
+        timer: 1800, showConfirmButton: false,
+        customClass: { popup: 'rounded-2xl' }
+      })
       setEditingId(null)
+      setEditRole('')
       await fetchUsers()
     }
     setSaving(false)
@@ -80,11 +94,15 @@ export default function AdminManageRoles() {
 
   const adminName = profile?.full_name || 'Admin'
 
+  // Hitung per role
+  const countRole = (role) => users.filter(u => u.role === role).length
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <AdminSidebar />
       <div className="flex-1 ml-56">
 
+        {/* TOPBAR */}
         <header className="bg-white border-b border-gray-100 px-8 py-4 flex items-center gap-4 sticky top-0 z-10">
           <div className="flex-1 max-w-md">
             <div className="relative">
@@ -99,12 +117,12 @@ export default function AdminManageRoles() {
             <div className="relative" ref={adminDropRef}>
               <button onClick={() => setAdminDropdown(p => !p)}
                 className="flex items-center gap-3 pl-4 border-l border-gray-100 hover:bg-gray-50 px-3 py-2 rounded-xl transition">
-                <div className="w-9 h-9 bg-purple-100 rounded-full flex items-center justify-center font-bold text-purple-500 text-sm">
+                <div className="w-9 h-9 bg-orange-100 rounded-full flex items-center justify-center font-bold text-orange-500 text-sm">
                   {adminName[0].toUpperCase()}
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-semibold text-gray-800">{adminName.split(' ')[0]}</p>
-                  <p className="text-xs text-purple-500 font-medium">Super Admin</p>
+                  <p className="text-xs text-gray-400">Administrator</p>
                 </div>
                 <ChevronDownIcon className={`w-4 h-4 text-gray-400 transition-transform ${adminDropdown ? 'rotate-180' : ''}`} />
               </button>
@@ -122,27 +140,45 @@ export default function AdminManageRoles() {
         </header>
 
         <main className="p-8">
+          {/* Header */}
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-800 tracking-tight flex items-center gap-2">
-              <ShieldCheckIcon className="w-7 h-7 text-purple-500" />
+              <ShieldCheckIcon className="w-7 h-7 text-blue-500" />
               Kelola Role & Akses
             </h1>
             <p className="text-gray-400 text-sm mt-1">Atur role dan hak akses setiap pengguna sistem.</p>
           </div>
 
-          {/* Role Info Cards */}
-          <div className="grid grid-cols-4 gap-4 mb-6">
+          {/* Role Info Cards — 3 role saja */}
+          <div className="grid grid-cols-3 gap-4 mb-6">
             {[
-              { role: 'superadmin', label: 'Super Admin', desc: 'Akses penuh ke seluruh sistem termasuk kelola role', color: 'border-purple-200 bg-purple-50', badge: 'bg-purple-100 text-purple-600' },
-              { role: 'admin', label: 'Admin', desc: 'Kelola menu, pesanan, pelanggan, laporan, ulasan', color: 'border-blue-200 bg-blue-50', badge: 'bg-blue-100 text-blue-600' },
-              { role: 'staff', label: 'Staff', desc: 'Akses kasir, lihat pesanan, update status pesanan', color: 'border-green-200 bg-green-50', badge: 'bg-green-100 text-green-600' },
-              { role: 'customer', label: 'Customer', desc: 'Hanya akses halaman pelanggan (tidak bisa masuk admin)', color: 'border-gray-200 bg-gray-50', badge: 'bg-gray-100 text-gray-600' },
+              {
+                role: 'admin',
+                label: 'Admin',
+                desc: 'Akses penuh: kelola menu, pesanan online, pelanggan, laporan, ulasan, dan role',
+                color: 'border-blue-200 bg-blue-50',
+                badge: 'bg-blue-100 text-blue-600',
+              },
+              {
+                role: 'staff',
+                label: 'Staff',
+                desc: 'Akses kasir, riwayat transaksi, dan lihat pesanan online (tidak bisa ubah status)',
+                color: 'border-green-200 bg-green-50',
+                badge: 'bg-green-100 text-green-600',
+              },
+              {
+                role: 'customer',
+                label: 'Customer',
+                desc: 'Hanya akses halaman pelanggan di website, tidak bisa masuk ke panel admin',
+                color: 'border-gray-200 bg-gray-50',
+                badge: 'bg-gray-100 text-gray-600',
+              },
             ].map(r => (
-              <div key={r.role} className={`rounded-2xl border p-4 ${r.color}`}>
-                <span className={`text-xs px-2 py-1 rounded-full font-semibold ${r.badge}`}>{r.label}</span>
-                <p className="text-xs text-gray-600 mt-2 leading-relaxed">{r.desc}</p>
-                <p className="text-lg font-black text-gray-800 mt-2">
-                  {users.filter(u => u.role === r.role).length}
+              <div key={r.role} className={`rounded-2xl border p-5 ${r.color}`}>
+                <span className={`text-xs px-3 py-1 rounded-full font-semibold ${r.badge}`}>{r.label}</span>
+                <p className="text-sm text-gray-600 mt-3 leading-relaxed">{r.desc}</p>
+                <p className="text-2xl font-black text-gray-800 mt-3">
+                  {countRole(r.role)}
                   <span className="text-xs text-gray-400 font-normal ml-1">pengguna</span>
                 </p>
               </div>
@@ -165,71 +201,90 @@ export default function AdminManageRoles() {
                 {loading ? (
                   [...Array(4)].map((_, i) => (
                     <tr key={i} className="border-b border-gray-50">
-                      <td colSpan={5} className="px-6 py-4"><div className="h-10 bg-gray-100 rounded-xl animate-pulse" /></td>
+                      <td colSpan={5} className="px-6 py-4">
+                        <div className="h-10 bg-gray-100 rounded-xl animate-pulse" />
+                      </td>
                     </tr>
                   ))
-                ) : filtered.map(user => (
-                  <tr key={user.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 ${
-                          user.role === 'superadmin' ? 'bg-purple-100 text-purple-500'
-                          : user.role === 'admin' ? 'bg-blue-100 text-blue-500'
-                          : user.role === 'staff' ? 'bg-green-100 text-green-500'
-                          : 'bg-gray-100 text-gray-500'
-                        }`}>
-                          {(user.full_name || 'U')[0].toUpperCase()}
+                ) : filtered.map(user => {
+                  const roleLabel = ROLE_LABELS[user.role] || user.role
+                  const roleColor = ROLE_COLORS[user.role] || 'bg-gray-100 text-gray-500'
+                  const isMe = user.id === profile?.id
+                  return (
+                    <tr key={user.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 ${
+                            user.role === 'admin' ? 'bg-blue-100 text-blue-500'
+                            : user.role === 'staff' ? 'bg-green-100 text-green-500'
+                            : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            {(user.full_name || 'U')[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-800">
+                              {user.full_name || '(Belum diset)'}
+                              {isMe && <span className="ml-2 text-xs text-orange-500 font-normal">(Kamu)</span>}
+                            </p>
+                            <p className="text-xs text-gray-400">{user.id.slice(0, 12)}...</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-semibold text-gray-800">{user.full_name || '(Belum diset)'}</p>
-                          <p className="text-xs text-gray-400">{user.id.slice(0, 12)}...</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4">
-                      <p className="text-sm text-gray-600">{user.phone || '-'}</p>
-                    </td>
-                    <td className="px-4 py-4">
-                      <p className="text-sm text-gray-600">
-                        {new Date(user.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </p>
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className={`text-xs px-3 py-1.5 rounded-full font-semibold ${ROLE_COLORS[user.role] || 'bg-gray-100 text-gray-500'}`}>
-                        {ROLE_LABELS[user.role] || user.role}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4">
-                      {editingId === user.id ? (
-                        <div className="flex items-center gap-2">
-                          <select value={editRole} onChange={e => setEditRole(e.target.value)}
-                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-orange-300">
-                            {ROLE_OPTIONS.map(r => (
-                              <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                            ))}
-                          </select>
-                          <button onClick={() => handleSaveRole(user.id)} disabled={saving}
-                            className="w-7 h-7 bg-green-500 rounded-lg flex items-center justify-center hover:bg-green-600 transition">
-                            <CheckIcon className="w-4 h-4 text-white" />
+                      </td>
+                      <td className="px-4 py-4">
+                        <p className="text-sm text-gray-600">{user.phone || '-'}</p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <p className="text-sm text-gray-600">
+                          {new Date(user.created_at).toLocaleDateString('id-ID', {
+                            day: 'numeric', month: 'short', year: 'numeric'
+                          })}
+                        </p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className={`text-xs px-3 py-1.5 rounded-full font-semibold ${roleColor}`}>
+                          {roleLabel}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        {editingId === user.id ? (
+                          <div className="flex items-center gap-2">
+                            <select value={editRole} onChange={e => setEditRole(e.target.value)}
+                              className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-orange-300">
+                              {ROLE_OPTIONS.map(r => (
+                                <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                              ))}
+                            </select>
+                            <button onClick={() => handleSaveRole(user.id)} disabled={saving}
+                              className="w-7 h-7 bg-green-500 rounded-lg flex items-center justify-center hover:bg-green-600 transition disabled:opacity-50">
+                              <CheckIcon className="w-4 h-4 text-white" />
+                            </button>
+                            <button onClick={() => { setEditingId(null); setEditRole('') }}
+                              className="w-7 h-7 bg-gray-100 rounded-lg flex items-center justify-center hover:bg-gray-200 transition">
+                              <XMarkIcon className="w-4 h-4 text-gray-500" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => { setEditingId(user.id); setEditRole(user.role || 'customer') }}
+                            disabled={isMe}
+                            className="w-8 h-8 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-orange-50 hover:border-orange-300 hover:text-orange-500 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                            title={isMe ? 'Tidak bisa mengubah role diri sendiri' : 'Ubah Role'}>
+                            <PencilIcon className="w-4 h-4" />
                           </button>
-                          <button onClick={() => setEditingId(null)}
-                            className="w-7 h-7 bg-gray-100 rounded-lg flex items-center justify-center hover:bg-gray-200 transition">
-                            <XMarkIcon className="w-4 h-4 text-gray-500" />
-                          </button>
-                        </div>
-                      ) : (
-                        <button onClick={() => { setEditingId(user.id); setEditRole(user.role) }}
-                          disabled={user.id === profile?.id}
-                          className="w-8 h-8 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-orange-50 hover:border-orange-300 hover:text-orange-500 transition disabled:opacity-30 disabled:cursor-not-allowed"
-                          title={user.id === profile?.id ? 'Tidak bisa mengubah role diri sendiri' : 'Ubah Role'}>
-                          <PencilIcon className="w-4 h-4" />
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
+
+            {filtered.length === 0 && !loading && (
+              <div className="text-center py-12 text-gray-400">
+                <p className="text-3xl mb-2">👥</p>
+                <p className="font-medium text-gray-500">Pengguna tidak ditemukan</p>
+              </div>
+            )}
           </div>
         </main>
       </div>
