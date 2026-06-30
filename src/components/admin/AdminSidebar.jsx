@@ -5,7 +5,7 @@ import {
   HomeIcon, ShoppingBagIcon, CakeIcon, TagIcon,
   UserGroupIcon, CogIcon, ArrowRightOnRectangleIcon,
   DocumentChartBarIcon, StarIcon, CalculatorIcon,
-  ClockIcon, ShieldCheckIcon
+  ClockIcon, ShieldCheckIcon, ChartBarIcon
 } from '@heroicons/react/24/outline'
 
 export default function AdminSidebar() {
@@ -80,6 +80,9 @@ export default function AdminSidebar() {
         <div className="px-3 mb-4">
           <p className="text-xs text-gray-400 font-semibold px-4 mb-2">PESANAN</p>
           <NavItem to="/admin/orders" icon={ShoppingBagIcon} label="Pesanan Online" />
+          {isAdmin && (
+            <NavItem to="/admin/transactions" icon={ChartBarIcon} label="Riwayat Transaksi" />
+          )}
         </div>
 
         {/* MANAGEMENT — admin only */}

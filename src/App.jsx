@@ -23,6 +23,7 @@ import AdminReports from './pages/admin/AdminReports'
 import AdminKasir from './pages/admin/AdminKasir'
 import AdminKasirHistory from './pages/admin/AdminKasirHistory'
 import AdminManageRoles from './pages/admin/AdminManageRoles'
+import AdminAllTransactions from './pages/admin/AdminAllTransactions'
 
 function LoadingScreen() {
   return (
@@ -75,6 +76,7 @@ function App() {
       <Route path="/admin/reviews" element={<AdminOnlyRoute><AdminReviews /></AdminOnlyRoute>} />
       <Route path="/admin/reports" element={<AdminOnlyRoute><AdminReports /></AdminOnlyRoute>} />
       <Route path="/admin/manage-roles" element={<AdminOnlyRoute><AdminManageRoles /></AdminOnlyRoute>} />
+      <Route path="/admin/transactions" element={<AdminOnlyRoute><AdminAllTransactions /></AdminOnlyRoute>} />
 
       {/* ===== STAFF & ADMIN ===== */}
       <Route path="/admin/kasir" element={<StaffRoute><AdminKasir /></StaffRoute>} />
