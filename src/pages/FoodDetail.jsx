@@ -48,6 +48,10 @@ export default function FoodDetail() {
   const [userHasReviewed, setUserHasReviewed] = useState(false)
   const [loadingReviews, setLoadingReviews] = useState(true)
 
+  // Product Add On (relasi product_addons, beda dari food_options multiple)
+  const [productAddons, setProductAddons] = useState([])
+  const [selectedProductAddons, setSelectedProductAddons] = useState({}) // {addonFoodId: qty}
+
   useEffect(() => {
     fetchFood()
     fetchReviews()
@@ -106,6 +110,16 @@ export default function FoodDetail() {
         .neq('id', id).limit(4)
       setRelated(rel || [])
     }
+
+    // Ambil Add On yang sudah dipasangkan admin untuk produk ini
+    const { data: addonLinks } = await supabase
+      .from('product_addons')
+      .select('addon_food_id, foods:addon_food_id(*)')
+      .eq('food_id', id)
+    const addonFoods = (addonLinks || []).map(l => l.foods).filter(f => f && f.is_available)
+    setProductAddons(addonFoods)
+    setSelectedProductAddons({})
+
     setLoading(false)
   }
 
@@ -228,6 +242,12 @@ export default function FoodDetail() {
         if (item) extra += (item.extra_price || 0) * itemQty
       })
     })
+    // Tambahkan harga product add-on yang dipilih
+    Object.entries(selectedProductAddons).forEach(([addonId, addonQty]) => {
+      if (!addonQty) return
+      const addon = productAddons.find(a => a.id === addonId)
+      if (addon) extra += (addon.price || 0) * addonQty
+    })
     return extra
   }
 
@@ -241,14 +261,14 @@ export default function FoodDetail() {
 
   const handleAddToCart = () => {
     if (!isValid()) { alert('Harap lengkapi semua pilihan yang wajib!'); return }
-    addItem({ ...food, qty, price: pricePerUnit, selected, selectedMulti })
+    addItem({ ...food, qty, price: pricePerUnit, selected, selectedMulti, selectedProductAddons, productAddonsDetail: productAddons })
     setAddedToCart(true)
     setTimeout(() => setAddedToCart(false), 2000)
   }
 
   const handleOrderNow = () => {
     if (!isValid()) { alert('Harap lengkapi semua pilihan yang wajib!'); return }
-    addItem({ ...food, qty, price: pricePerUnit, selected, selectedMulti })
+    addItem({ ...food, qty, price: pricePerUnit, selected, selectedMulti, selectedProductAddons, productAddonsDetail: productAddons })
     navigate('/checkout')
   }
 
@@ -443,6 +463,54 @@ export default function FoodDetail() {
                 </div>
               </div>
             ))}
+
+            {/* Product Add On — dari relasi product_addons yang diatur admin */}
+            {productAddons.length > 0 && (
+              <div className="bg-white rounded-2xl p-5 shadow-sm mb-3 border-2 border-purple-100">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                    <span className="text-purple-500 text-lg">+</span> Tambah Add On
+                  </h3>
+                  <span className="text-purple-500 text-xs font-medium bg-purple-50 px-2 py-1 rounded-full">Opsional</span>
+                </div>
+                <div className="space-y-2">
+                  {productAddons.map(addon => {
+                    const addonQty = selectedProductAddons[addon.id] || 0
+                    return (
+                      <div key={addon.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="w-10 h-10 rounded-lg overflow-hidden bg-orange-50 flex-shrink-0">
+                            {addon.image
+                              ? <img src={addon.image} alt={addon.name} className="w-full h-full object-cover" />
+                              : <div className="w-full h-full flex items-center justify-center text-lg">🍽️</div>
+                            }
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm text-gray-700 font-medium truncate">{addon.name}</p>
+                            <p className="text-orange-500 text-xs font-medium">+ Rp {addon.price?.toLocaleString('id-ID')}</p>
+                          </div>
+                        </div>
+                        {addonQty === 0 ? (
+                          <button
+                            onClick={() => setSelectedProductAddons(prev => ({ ...prev, [addon.id]: 1 }))}
+                            className="text-xs border border-orange-300 text-orange-500 px-3 py-1.5 rounded-lg font-medium hover:bg-orange-50 transition flex-shrink-0">
+                            Tambah
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <button onClick={() => setSelectedProductAddons(prev => ({ ...prev, [addon.id]: Math.max(0, addonQty - 1) }))}
+                              className="w-6 h-6 rounded-full border border-gray-200 flex items-center justify-center text-xs hover:bg-orange-50 transition">−</button>
+                            <span className="text-sm font-medium w-4 text-center">{addonQty}</span>
+                            <button onClick={() => setSelectedProductAddons(prev => ({ ...prev, [addon.id]: addonQty + 1 }))}
+                              className="w-6 h-6 rounded-full border border-gray-200 flex items-center justify-center text-xs hover:bg-orange-50 transition">+</button>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Jumlah */}
             <div className="bg-white rounded-2xl p-5 shadow-sm mb-4">

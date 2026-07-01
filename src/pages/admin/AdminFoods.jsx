@@ -36,6 +36,11 @@ export default function AdminFoods() {
   const [savingOptions, setSavingOptions] = useState(false)
   const [templateLoaded, setTemplateLoaded] = useState(false)
 
+  // Add On state
+  const [addonFoods, setAddonFoods] = useState([])       // daftar produk di kategori add-on
+  const [selectedAddonIds, setSelectedAddonIds] = useState(new Set())
+  const [savingAddons, setSavingAddons] = useState(false)
+
   const [form, setForm] = useState({
     name: '', category_id: '', description: '',
     price: '', is_available: true, unit: 'porsi', min_order: 1,
@@ -104,6 +109,72 @@ export default function AdminFoods() {
       setOptionGroups(templateOpts)
       setLoadingOptions(false)
       if (templateOpts.length > 0) setTemplateLoaded(true)
+    }
+    await loadAddonData(food)
+  }
+
+  // Ambil daftar produk dari kategori bertipe Add On + relasi yang sudah tersimpan
+  async function loadAddonData(food) {
+    const { data: addonCats } = await supabase
+      .from('categories').select('id').eq('is_addon', true)
+    const addonCatIds = (addonCats || []).map(c => c.id)
+
+    if (addonCatIds.length === 0) {
+      setAddonFoods([])
+      setSelectedAddonIds(new Set())
+      return
+    }
+
+    const { data: addonList } = await supabase
+      .from('foods')
+      .select('*, categories(name)')
+      .in('category_id', addonCatIds)
+      .eq('is_available', true)
+      .neq('id', food.id)
+
+    setAddonFoods(addonList || [])
+
+    const { data: existingLinks } = await supabase
+      .from('product_addons')
+      .select('addon_food_id')
+      .eq('food_id', food.id)
+
+    setSelectedAddonIds(new Set((existingLinks || []).map(l => l.addon_food_id)))
+  }
+
+  const toggleAddonSelection = (addonId) => {
+    setSelectedAddonIds(prev => {
+      const next = new Set(prev)
+      if (next.has(addonId)) next.delete(addonId)
+      else next.add(addonId)
+      return next
+    })
+  }
+
+  const handleSaveAddons = async () => {
+    if (!editFood) return
+    setSavingAddons(true)
+    try {
+      // Hapus semua relasi lama, lalu insert ulang yang dipilih
+      await supabase.from('product_addons').delete().eq('food_id', editFood.id)
+      const rows = Array.from(selectedAddonIds).map(addonId => ({
+        food_id: editFood.id,
+        addon_food_id: addonId,
+      }))
+      if (rows.length > 0) {
+        const { error } = await supabase.from('product_addons').insert(rows)
+        if (error) throw error
+      }
+      Swal.fire({
+        icon: 'success', title: 'Add On Disimpan!',
+        text: `${rows.length} add on terhubung ke ${editFood.name}.`,
+        confirmButtonColor: '#f97316', timer: 2000, timerProgressBar: true,
+        showConfirmButton: false, customClass: { popup: 'rounded-2xl' },
+      })
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Gagal Menyimpan Add On', text: err.message, confirmButtonColor: '#f97316', customClass: { popup: 'rounded-2xl' } })
+    } finally {
+      setSavingAddons(false)
     }
   }
 
@@ -374,6 +445,20 @@ export default function AdminFoods() {
     return cat?.name?.toLowerCase().includes('catering') || false
   }
 
+  // Produk ini sendiri ada di kategori Add On? (kalau iya tidak perlu kelola add-on)
+  const isAddonCategoryFood = () => {
+    if (!editFood) return false
+    const cat = categories.find(c => c.id === editFood.category_id)
+    return cat?.is_addon === true
+  }
+
+  // Produk ini bagian dari kategori online? (offline tidak ada add-on)
+  const isOnlineCategoryFood = () => {
+    if (!editFood) return false
+    const cat = categories.find(c => c.id === editFood.category_id)
+    return (cat?.type || 'online') === 'online'
+  }
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <AdminSidebar />
@@ -463,7 +548,9 @@ export default function AdminFoods() {
             <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setPage(1) }}
               className="border border-gray-200 bg-white rounded-xl px-4 py-2.5 text-sm outline-none shadow-sm">
               <option value="">Semua Kategori</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {categories
+                .filter(c => (c.type || 'online') === menuType)
+                .map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
             <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1) }}
               className="border border-gray-200 bg-white rounded-xl px-4 py-2.5 text-sm outline-none shadow-sm">
@@ -634,10 +721,16 @@ export default function AdminFoods() {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700 block mb-1">Kategori *</label>
-                    <select value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })}
+                    <select value={form.category_id} onChange={e => {
+                        const catId = e.target.value
+                        const cat = categories.find(c => c.id === catId)
+                        setForm({ ...form, category_id: catId, is_offline: cat ? (cat.type === 'offline') : form.is_offline })
+                      }}
                       className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-400 transition">
                       <option value="">Pilih kategori</option>
-                      {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      {categories
+                        .filter(c => (c.type || 'online') === menuType)
+                        .map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </div>
                   <div>
@@ -731,21 +824,17 @@ export default function AdminFoods() {
                     </button>
                   </div>
 
-                  {/* Toggle Online vs Offline */}
+                  {/* Info Tipe — otomatis dari kategori, bukan toggle manual lagi */}
                   <div className="flex items-center justify-between bg-blue-50 rounded-xl p-4">
                     <div>
-                      <p className="font-medium text-gray-800 text-sm">Tersedia di Kasir (Offline)</p>
-                      <p className="text-xs text-gray-400">
-                        {form.is_offline
-                          ? '🧾 Menu ini hanya muncul di kasir'
-                          : '🌐 Menu ini muncul di website online'
-                        }
-                      </p>
+                      <p className="font-medium text-gray-800 text-sm">Tipe Penjualan</p>
+                      <p className="text-xs text-gray-400">Mengikuti tipe kategori yang dipilih</p>
                     </div>
-                    <button onClick={() => setForm({ ...form, is_offline: !form.is_offline })}
-                      className={`w-12 h-6 rounded-full transition-colors relative ${form.is_offline ? 'bg-blue-500' : 'bg-gray-200'}`}>
-                      <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all shadow-sm ${form.is_offline ? 'left-6' : 'left-0.5'}`} />
-                    </button>
+                    <span className={`text-xs px-3 py-1.5 rounded-full font-semibold flex-shrink-0 ml-3 ${
+                      form.is_offline ? 'bg-blue-500 text-white' : 'bg-orange-500 text-white'
+                    }`}>
+                      {form.is_offline ? '🧾 Kasir' : '🌐 Online'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -905,6 +994,77 @@ export default function AdminFoods() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* ===== SECTION ADD ON (cross-product) ===== */}
+              {/* Hanya muncul untuk produk NON-catering, karena Paket Catering sudah punya
+                  grup "Tambah Add On" manual sendiri di dalam food_options di atas */}
+              {isOnlineCategoryFood() && !isAddonCategoryFood() && !isCateringFood() && (
+                <div className="mt-8 pt-6 border-t border-gray-100">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                        <span className="text-purple-500">+</span> Kelola Add On
+                      </h3>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Pilih produk dari kategori Add On untuk ditawarkan di halaman detail menu ini.
+                      </p>
+                    </div>
+                    {selectedAddonIds.size > 0 && (
+                      <span className="text-xs bg-purple-100 text-purple-600 px-2.5 py-1 rounded-full font-semibold flex-shrink-0">
+                        {selectedAddonIds.size} dipilih
+                      </span>
+                    )}
+                  </div>
+
+                  {addonFoods.length === 0 ? (
+                    <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-2xl">
+                      <p className="text-3xl mb-2">➕</p>
+                      <p className="text-sm font-medium text-gray-600">Belum ada produk Add On</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Buat dulu kategori dengan tipe "Add On" di halaman Kategori, lalu tambahkan menunya.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {addonFoods.map(addon => {
+                        const isSelected = selectedAddonIds.has(addon.id)
+                        return (
+                          <button key={addon.id} onClick={() => toggleAddonSelection(addon.id)}
+                            className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition text-left ${
+                              isSelected ? 'border-purple-400 bg-purple-50' : 'border-gray-100 hover:border-purple-200'
+                            }`}>
+                            <div className="w-10 h-10 rounded-lg overflow-hidden bg-orange-50 flex-shrink-0">
+                              {addon.image
+                                ? <img src={addon.image} alt={addon.name} className="w-full h-full object-cover" />
+                                : <div className="w-full h-full flex items-center justify-center text-lg">🍽️</div>
+                              }
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-gray-800 truncate">{addon.name}</p>
+                              <p className="text-xs text-gray-400">Rp {addon.price?.toLocaleString('id-ID')} / {addon.unit || 'porsi'}</p>
+                            </div>
+                            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 ${
+                              isSelected ? 'bg-purple-500 border-purple-500' : 'border-gray-300'
+                            }`}>
+                              {isSelected && <CheckIcon className="w-3.5 h-3.5 text-white" />}
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {addonFoods.length > 0 && (
+                    <button onClick={handleSaveAddons} disabled={savingAddons}
+                      className="w-full mt-4 bg-purple-500 text-white py-3 rounded-xl font-semibold text-sm hover:bg-purple-600 transition disabled:opacity-50 flex items-center justify-center gap-2">
+                      {savingAddons
+                        ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Menyimpan...</>
+                        : <><CheckIcon className="w-4 h-4" /> Simpan Add On</>
+                      }
+                    </button>
+                  )}
                 </div>
               )}
 

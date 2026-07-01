@@ -6,7 +6,8 @@ import {
   MagnifyingGlassIcon, PlusIcon, PencilIcon, TrashIcon,
   XMarkIcon, ChevronDownIcon, ArrowRightOnRectangleIcon,
   ChevronLeftIcon, ChevronRightIcon, EllipsisHorizontalIcon,
-  CheckIcon, TagIcon, FolderIcon
+  CheckIcon, TagIcon, FolderIcon, GlobeAltIcon as WebIcon,
+  CalculatorIcon
 } from '@heroicons/react/24/outline'
 import {
   CakeIcon, BeakerIcon, ShoppingBagIcon, SparklesIcon,
@@ -49,6 +50,7 @@ export default function AdminCategories() {
   const [foodCounts, setFoodCounts] = useState({})
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState('all') // all | online | offline
   const [page, setPage] = useState(1)
   const [showPanel, setShowPanel] = useState(false)
   const [editCat, setEditCat] = useState(null)
@@ -57,7 +59,8 @@ export default function AdminCategories() {
   const perPage = 8
 
   const [form, setForm] = useState({
-    name: '', description: '', slug: '', icon: 'folder', is_active: true
+    name: '', description: '', slug: '', icon: 'folder', is_active: true,
+    type: 'online', is_addon: false,
   })
 
   useEffect(() => { fetchData() }, [])
@@ -101,7 +104,10 @@ export default function AdminCategories() {
 
   const openAdd = () => {
     setEditCat(null)
-    setForm({ name: '', description: '', slug: '', icon: 'folder', is_active: true })
+    setForm({
+      name: '', description: '', slug: '', icon: 'folder', is_active: true,
+      type: typeFilter === 'offline' ? 'offline' : 'online', is_addon: false,
+    })
     setShowPanel(true)
   }
 
@@ -113,6 +119,8 @@ export default function AdminCategories() {
       slug: cat.slug||'',
       icon: cat.icon||'folder',
       is_active: cat.is_active!==false,
+      type: cat.type || 'online',
+      is_addon: cat.is_addon || false,
     })
     setShowPanel(true)
     setOpenMenuId(null)
@@ -135,6 +143,8 @@ export default function AdminCategories() {
         slug: form.slug || generateSlug(form.name),
         icon: form.icon,
         is_active: form.is_active,
+        type: form.type,
+        is_addon: form.is_addon,
       }
       if (editCat) {
         const { error } = await supabase.from('categories').update(payload).eq('id', editCat.id)
@@ -186,13 +196,18 @@ export default function AdminCategories() {
     setOpenMenuId(null)
   }
 
-  const filtered = categories.filter(c =>
-    c.name?.toLowerCase().includes(search.toLowerCase()) ||
-    c.slug?.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = categories.filter(c => {
+    const matchSearch = c.name?.toLowerCase().includes(search.toLowerCase()) ||
+      c.slug?.toLowerCase().includes(search.toLowerCase())
+    const matchType = typeFilter === 'all' || (c.type || 'online') === typeFilter
+    return matchSearch && matchType
+  })
   const totalPages = Math.ceil(filtered.length / perPage)
   const paginated = filtered.slice((page-1)*perPage, page*perPage)
   const adminName = profile?.full_name || 'Admin'
+
+  const onlineCount = categories.filter(c => (c.type || 'online') === 'online').length
+  const offlineCount = categories.filter(c => c.type === 'offline').length
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -219,7 +234,7 @@ export default function AdminCategories() {
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-semibold text-gray-800">{adminName.split(' ')[0]}</p>
-                  <p className="text-xs text-gray-400">Super Administrator</p>
+                  <p className="text-xs text-gray-400">Administrator</p>
                 </div>
                 <ChevronDownIcon className={`w-4 h-4 text-gray-400 transition-transform ${adminDropdown?'rotate-180':''}`} />
               </button>
@@ -240,12 +255,42 @@ export default function AdminCategories() {
           <div className="flex items-start justify-between mb-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Kategori</h1>
-              <p className="text-gray-400 text-sm mt-1">Kelola semua kategori menu makanan dan minuman.</p>
+              <p className="text-gray-400 text-sm mt-1">Kelola kategori menu untuk pemesanan online dan kasir (offline).</p>
             </div>
             <button onClick={openAdd}
               className="flex items-center gap-2 bg-orange-500 text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-orange-600 transition shadow-sm shadow-orange-200">
               <PlusIcon className="w-4 h-4" />
               Tambah Kategori
+            </button>
+          </div>
+
+          {/* Tab Online / Offline */}
+          <div className="flex gap-3 mb-5">
+            <button onClick={() => { setTypeFilter('all'); setPage(1) }}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition border ${
+                typeFilter === 'all'
+                  ? 'bg-gray-800 text-white border-gray-800'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+              }`}>
+              Semua ({categories.length})
+            </button>
+            <button onClick={() => { setTypeFilter('online'); setPage(1) }}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition border ${
+                typeFilter === 'online'
+                  ? 'bg-orange-500 text-white border-orange-500'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
+              }`}>
+              <WebIcon className="w-4 h-4" />
+              Kategori Online ({onlineCount})
+            </button>
+            <button onClick={() => { setTypeFilter('offline'); setPage(1) }}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition border ${
+                typeFilter === 'offline'
+                  ? 'bg-blue-500 text-white border-blue-500'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+              }`}>
+              <CalculatorIcon className="w-4 h-4" />
+              Kategori Kasir ({offlineCount})
             </button>
           </div>
 
@@ -262,7 +307,7 @@ export default function AdminCategories() {
                 <tr className="border-b border-gray-50 text-left">
                   <th className="px-6 py-4 text-xs font-semibold text-gray-400 w-12">No</th>
                   <th className="px-4 py-4 text-xs font-semibold text-gray-400">Nama Kategori</th>
-                  <th className="px-4 py-4 text-xs font-semibold text-gray-400">Slug</th>
+                  <th className="px-4 py-4 text-xs font-semibold text-gray-400">Tipe</th>
                   <th className="px-4 py-4 text-xs font-semibold text-gray-400">Jumlah Menu</th>
                   <th className="px-4 py-4 text-xs font-semibold text-gray-400">Status</th>
                   <th className="px-4 py-4 text-xs font-semibold text-gray-400">Aksi</th>
@@ -286,6 +331,7 @@ export default function AdminCategories() {
                   </tr>
                 ) : paginated.map((cat, idx) => {
                   const IconComp = getIconComponent(cat.icon)
+                  const catType = cat.type || 'online'
                   return (
                     <tr key={cat.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
                       <td className="px-6 py-4 text-sm text-gray-400 font-medium">{(page-1)*perPage+idx+1}</td>
@@ -295,13 +341,23 @@ export default function AdminCategories() {
                             <IconComp className="w-5 h-5 text-orange-500" />
                           </div>
                           <div>
-                            <p className="font-semibold text-gray-800 text-sm">{cat.name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-gray-800 text-sm">{cat.name}</p>
+                              {cat.is_addon && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-600 font-bold">ADD ON</span>
+                              )}
+                            </div>
                             {cat.description && <p className="text-gray-400 text-xs mt-0.5 line-clamp-1">{cat.description}</p>}
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-4">
-                        <span className="text-sm text-gray-500 font-mono bg-gray-50 px-2 py-1 rounded-lg">{cat.slug||'-'}</span>
+                        <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium ${
+                          catType === 'offline' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'
+                        }`}>
+                          {catType === 'offline' ? <CalculatorIcon className="w-3.5 h-3.5" /> : <WebIcon className="w-3.5 h-3.5" />}
+                          {catType === 'offline' ? 'Kasir' : 'Online'}
+                        </span>
                       </td>
                       <td className="px-4 py-4">
                         <span className="text-sm font-semibold text-gray-700">{foodCounts[cat.id]||0}</span>
@@ -400,6 +456,31 @@ export default function AdminCategories() {
             </div>
 
             <div className="p-6 space-y-5">
+
+              {/* Tipe Kategori — Online vs Offline */}
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-3">Tipe Kategori *</label>
+                <div className="flex gap-3">
+                  <button onClick={() => setForm({...form, type: 'online'})}
+                    className={`flex-1 py-3 rounded-xl text-sm font-semibold border-2 transition flex items-center justify-center gap-2 ${
+                      form.type === 'online' ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-gray-200 text-gray-500 hover:border-orange-300'
+                    }`}>
+                    <WebIcon className="w-4 h-4" /> Online
+                  </button>
+                  <button onClick={() => setForm({...form, type: 'offline'})}
+                    className={`flex-1 py-3 rounded-xl text-sm font-semibold border-2 transition flex items-center justify-center gap-2 ${
+                      form.type === 'offline' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-500 hover:border-blue-300'
+                    }`}>
+                    <CalculatorIcon className="w-4 h-4" /> Kasir (Offline)
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 mt-2">
+                  {form.type === 'online'
+                    ? 'Kategori ini tampil di halaman menu website pelanggan'
+                    : 'Kategori ini hanya tersedia di kasir untuk penjualan langsung'}
+                </p>
+              </div>
+
               {/* Pilih Ikon */}
               <div>
                 <label className="text-sm font-medium text-gray-700 block mb-3">Ikon Kategori</label>
@@ -455,6 +536,22 @@ export default function AdminCategories() {
                     className="w-full border border-gray-200 rounded-xl pl-8 pr-4 py-3 text-sm font-mono outline-none focus:border-orange-400 transition" />
                 </div>
               </div>
+
+              {/* Add On flag — hanya tampil untuk kategori Online */}
+              {form.type === 'online' && (
+                <div className="flex items-center justify-between bg-purple-50 rounded-xl p-4">
+                  <div>
+                    <p className="font-medium text-gray-800 text-sm">Kategori Add On</p>
+                    <p className="text-xs text-gray-400">
+                      Menu di kategori ini bisa ditawarkan sebagai tambahan di halaman detail produk lain
+                    </p>
+                  </div>
+                  <button onClick={() => setForm({ ...form, is_addon: !form.is_addon })}
+                    className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ml-3 ${form.is_addon ? 'bg-purple-500' : 'bg-gray-200'}`}>
+                    <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all shadow-sm ${form.is_addon ? 'left-6' : 'left-0.5'}`} />
+                  </button>
+                </div>
+              )}
 
               {/* Status */}
               <div>

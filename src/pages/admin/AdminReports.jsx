@@ -20,18 +20,25 @@ const COLORS = ['#f97316', '#22c55e', '#3b82f6', '#ec4899', '#a855f7', '#eab308'
 const formatRp = (val) => `Rp ${Number(val || 0).toLocaleString('id-ID')}`
 
 const StatCard = ({ icon, label, value, sub, subUp, iconBg }) => (
-  <div className="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4">
-    <div className={`w-12 h-12 ${iconBg || 'bg-orange-50'} rounded-xl flex items-center justify-center flex-shrink-0`}>
-      {icon}
+  <div className="bg-white rounded-2xl shadow-sm p-4 flex flex-col gap-2 min-w-0">
+    <div className="flex items-center justify-between">
+      <div className={`w-10 h-10 ${iconBg || 'bg-orange-50'} rounded-xl flex items-center justify-center flex-shrink-0`}>
+        {icon}
+      </div>
+      {sub && (
+        <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-md ${subUp ? 'text-green-600 bg-green-50' : 'text-red-500 bg-red-50'}`}>
+          {subUp ? '↑' : '↓'}{sub}
+        </span>
+      )}
     </div>
     <div className="min-w-0">
-      <p className="text-xs text-gray-500 font-medium mb-0.5 leading-tight">{label}</p>
-      <p className="text-xl font-black text-gray-900 truncate">{value}</p>
-      {sub && (
-        <p className={`text-xs font-medium mt-0.5 ${subUp ? 'text-green-500' : 'text-red-400'}`}>
-          {subUp ? '↑' : '↓'}{sub} dari periode lalu
-        </p>
-      )}
+      <p className="text-xs text-gray-500 font-medium leading-tight mb-1">{label}</p>
+      <p
+        title={typeof value === 'string' ? value : undefined}
+        className="text-base md:text-lg font-black text-gray-900 leading-snug break-words"
+      >
+        {value}
+      </p>
     </div>
   </div>
 )
@@ -532,7 +539,7 @@ export default function AdminReports() {
               {[...Array(6)].map((_, i) => <div key={i} className="bg-white rounded-2xl h-24 animate-pulse shadow-sm" />)}
             </div>
           ) : (
-            <div className="grid grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
               <StatCard
                 icon={<BanknotesIcon className="w-6 h-6 text-orange-500" />}
                 iconBg="bg-orange-50" label="Total Pendapatan"

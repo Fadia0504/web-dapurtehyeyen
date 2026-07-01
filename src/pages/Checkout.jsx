@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useCartStore } from '../store/cartStore'
 import { useAuthStore } from '../store/authStore'
-import { ChevronLeftIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
+import { ChevronLeftIcon, ShieldCheckIcon, CalendarDaysIcon } from '@heroicons/react/24/outline'
 import Swal from 'sweetalert2'
 
 export default function Checkout() {
@@ -12,6 +12,21 @@ export default function Checkout() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({ name: '', phone: '', address: '', notes: '' })
+  const [deliveryDate, setDeliveryDate] = useState('')
+
+  // Tanggal pengiriman minimal H+1 dari hari ini
+  const minDate = (() => {
+    const d = new Date()
+    d.setDate(d.getDate() + 1)
+    return d.toISOString().split('T')[0]
+  })()
+
+  // Batas maksimal opsional: 30 hari ke depan
+  const maxDate = (() => {
+    const d = new Date()
+    d.setDate(d.getDate() + 30)
+    return d.toISOString().split('T')[0]
+  })()
 
   useEffect(() => {
     if (items.length === 0) navigate('/menu')
@@ -30,12 +45,29 @@ export default function Checkout() {
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value })
 
+  const formatDeliveryLabel = (dateStr) => {
+    if (!dateStr) return ''
+    const d = new Date(dateStr)
+    return d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  }
+
   const handleSubmit = async () => {
     if (!form.name || !form.phone || !form.address) {
       Swal.fire({
         icon: 'warning',
         title: 'Data Belum Lengkap',
         text: 'Mohon isi semua field yang wajib diisi!',
+        confirmButtonColor: '#f97316',
+        customClass: { popup: 'rounded-2xl' }
+      })
+      return
+    }
+
+    if (!deliveryDate) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Tanggal Pengiriman Belum Dipilih',
+        text: 'Harap pilih tanggal kapan pesanan ini ingin dikirim.',
         confirmButtonColor: '#f97316',
         customClass: { popup: 'rounded-2xl' }
       })
@@ -56,6 +88,7 @@ export default function Checkout() {
         customer_phone: form.phone,
         customer_address: form.address,
         notes: form.notes,
+        delivery_date: deliveryDate,
       }).select().single()
 
       if (error) throw error
@@ -123,6 +156,32 @@ export default function Checkout() {
                     rows={3}
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-400 transition resize-none" />
                 </div>
+
+                {/* Tanggal Pengiriman — wajib */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Tanggal Pengiriman *</label>
+                  <div className="relative">
+                    <CalendarDaysIcon className="w-5 h-5 text-gray-300 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="date"
+                      min={minDate}
+                      max={maxDate}
+                      value={deliveryDate}
+                      onChange={e => setDeliveryDate(e.target.value)}
+                      className="w-full border border-gray-200 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:border-orange-400 transition"
+                    />
+                  </div>
+                  {deliveryDate ? (
+                    <p className="text-xs text-orange-600 mt-1.5 font-medium">
+                      📅 Dikirim pada {formatDeliveryLabel(deliveryDate)}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-400 mt-1.5">
+                      Pesanan diproses minimal H-1 sebelum tanggal pengiriman.
+                    </p>
+                  )}
+                </div>
+
                 <div>
                   <label className="text-sm font-medium text-gray-700 block mb-1">
                     Catatan <span className="text-gray-400 font-normal">(opsional)</span>
@@ -165,6 +224,14 @@ export default function Checkout() {
                   </div>
                 ))}
               </div>
+
+              {deliveryDate && (
+                <div className="flex items-center gap-2 bg-orange-50 rounded-xl px-3 py-2.5 mb-3">
+                  <CalendarDaysIcon className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                  <p className="text-xs text-orange-700 font-medium">{formatDeliveryLabel(deliveryDate)}</p>
+                </div>
+              )}
+
               <div className="border-t border-gray-100 pt-3 flex justify-between font-bold text-lg">
                 <span>Total</span>
                 <span className="text-orange-500">Rp {total().toLocaleString('id-ID')}</span>
