@@ -20,16 +20,17 @@ const DEFAULT_SETTINGS = {
   logo_url: '',
   operational_hours: DAY_LABELS.map(day => ({ day, open: '08:00', close: '20:00', closed: false })),
   min_order_free_ongkir: 100000,
-  delivery_fee: 10000,
-  delivery_radius_km: 10,
+  delivery_fee: 10000,        // tarif dasar (mencakup delivery_base_km pertama)
+  delivery_base_km: 2,        // berapa km pertama yang tercakup tarif dasar
+  delivery_per_km: 2500,      // tarif per km setelah km dasar (model GoFood)
+  delivery_min_fee: 8000,     // ongkir tidak lebih murah dari ini
+  delivery_radius_km: 10,     // di luar radius ini = tidak dijangkau
+  store_lat: -6.11962,        // titik toko (default dari lokasi Dapur Teh Yeyen)
+  store_lng: 106.58458,
   min_delivery_days_online: 1, // H+berapa minimal tanggal kirim di checkout
   notif_new_order_email: true,
   notif_new_order_sound: true,
   notif_low_stock: false,
-  bank_name: '',
-  bank_account_number: '',
-  bank_account_holder: '',
-  tax_percent: 0,
 }
 
 export default function AdminSettings() {
@@ -143,7 +144,6 @@ export default function AdminSettings() {
     { key: 'toko', label: 'Info Toko', icon: BuildingStorefrontIcon },
     { key: 'jam', label: 'Jam Operasional', icon: ClockIcon },
     { key: 'pengiriman', label: 'Pengiriman', icon: TruckIcon },
-    { key: 'pembayaran', label: 'Rekening & Pajak', icon: CreditCardIcon },
     { key: 'notifikasi', label: 'Notifikasi', icon: BellIcon },
   ]
 
@@ -312,21 +312,38 @@ export default function AdminSettings() {
                     <h2 className="font-bold text-gray-900 mb-1 flex items-center gap-2">
                       <TruckIcon className="w-5 h-5 text-orange-500" /> Pengaturan Pengiriman
                     </h2>
-                    <p className="text-xs text-gray-400 mb-6">Atur ongkos kirim, radius area, dan aturan jadwal pemesanan online.</p>
+                    <p className="text-xs text-gray-400 mb-6">Ongkir dihitung otomatis berdasarkan jarak titik antar pelanggan ke titik toko (model GoFood).</p>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    {/* Tarif berbasis jarak */}
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Tarif Ongkir (berbasis jarak)</p>
+                    <div className="grid grid-cols-2 gap-4 mb-6">
                       <div>
-                        <label className="text-sm font-medium text-gray-700 block mb-1">Ongkos Kirim (Rp)</label>
+                        <label className="text-sm font-medium text-gray-700 block mb-1">Tarif Dasar (Rp)</label>
                         <input type="text" inputMode="numeric"
                           value={settings.delivery_fee}
                           onChange={e => updateField('delivery_fee', Number(e.target.value.replace(/[^0-9]/g, '')) || 0)}
                           className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-orange-400 transition" />
+                        <p className="text-xs text-gray-400 mt-1">Sudah termasuk km pertama.</p>
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-gray-700 block mb-1">Minimal Order Gratis Ongkir (Rp)</label>
+                        <label className="text-sm font-medium text-gray-700 block mb-1">Km Dasar (termasuk tarif dasar)</label>
+                        <input type="number" step="0.5" value={settings.delivery_base_km}
+                          onChange={e => updateField('delivery_base_km', Number(e.target.value) || 0)}
+                          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-orange-400 transition" />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 block mb-1">Tarif per Km (Rp)</label>
                         <input type="text" inputMode="numeric"
-                          value={settings.min_order_free_ongkir}
-                          onChange={e => updateField('min_order_free_ongkir', Number(e.target.value.replace(/[^0-9]/g, '')) || 0)}
+                          value={settings.delivery_per_km}
+                          onChange={e => updateField('delivery_per_km', Number(e.target.value.replace(/[^0-9]/g, '')) || 0)}
+                          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-orange-400 transition" />
+                        <p className="text-xs text-gray-400 mt-1">Dikenakan tiap km setelah Km Dasar.</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 block mb-1">Ongkir Minimum (Rp)</label>
+                        <input type="text" inputMode="numeric"
+                          value={settings.delivery_min_fee}
+                          onChange={e => updateField('delivery_min_fee', Number(e.target.value.replace(/[^0-9]/g, '')) || 0)}
                           className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-orange-400 transition" />
                       </div>
                       <div>
@@ -334,7 +351,45 @@ export default function AdminSettings() {
                         <input type="number" value={settings.delivery_radius_km}
                           onChange={e => updateField('delivery_radius_km', Number(e.target.value) || 0)}
                           className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-orange-400 transition" />
+                        <p className="text-xs text-gray-400 mt-1">Di luar radius ini dianggap tidak terjangkau.</p>
                       </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 block mb-1">Minimal Order Gratis Ongkir (Rp)</label>
+                        <input type="text" inputMode="numeric"
+                          value={settings.min_order_free_ongkir}
+                          onChange={e => updateField('min_order_free_ongkir', Number(e.target.value.replace(/[^0-9]/g, '')) || 0)}
+                          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-orange-400 transition" />
+                        <p className="text-xs text-gray-400 mt-1">Isi 0 untuk menonaktifkan gratis ongkir.</p>
+                      </div>
+                    </div>
+
+                    {/* Titik toko */}
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Titik Lokasi Toko (asal ongkir)</p>
+                    <div className="grid grid-cols-2 gap-4 mb-2">
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 block mb-1">Latitude</label>
+                        <input type="number" step="any" value={settings.store_lat}
+                          onChange={e => updateField('store_lat', Number(e.target.value))}
+                          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-orange-400 transition" />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 block mb-1">Longitude</label>
+                        <input type="number" step="any" value={settings.store_lng}
+                          onChange={e => updateField('store_lng', Number(e.target.value))}
+                          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-orange-400 transition" />
+                      </div>
+                    </div>
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${settings.store_lat},${settings.store_lng}`}
+                      target="_blank" rel="noreferrer"
+                      className="text-xs font-semibold text-orange-500 hover:underline">
+                      📍 Cek titik toko di Google Maps
+                    </a>
+                    <p className="text-xs text-gray-400 mt-1 mb-6">Tips: buka Google Maps, klik kanan di lokasi toko, salin angka lat, lng yang muncul.</p>
+
+                    {/* Aturan jadwal */}
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Jadwal Pemesanan</p>
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-sm font-medium text-gray-700 block mb-1">Minimal H+ untuk Tanggal Kirim</label>
                         <select value={settings.min_delivery_days_online}
@@ -345,50 +400,13 @@ export default function AdminSettings() {
                           <option value={2}>Minimal H+2</option>
                           <option value={3}>Minimal H+3</option>
                         </select>
-                        <p className="text-xs text-gray-400 mt-1">Menentukan tanggal tercepat yang bisa dipilih pelanggan di halaman checkout.</p>
+                        <p className="text-xs text-gray-400 mt-1">Tanggal tercepat yang bisa dipilih pelanggan di checkout.</p>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* ===== TAB: PEMBAYARAN ===== */}
-                {activeTab === 'pembayaran' && (
-                  <div className="bg-white rounded-2xl shadow-sm p-6">
-                    <h2 className="font-bold text-gray-900 mb-1 flex items-center gap-2">
-                      <CreditCardIcon className="w-5 h-5 text-orange-500" /> Rekening & Pajak
-                    </h2>
-                    <p className="text-xs text-gray-400 mb-6">Info rekening untuk transfer manual dan pengaturan pajak/service.</p>
-
-                    <div className="grid grid-cols-2 gap-4 mb-6">
-                      <div>
-                        <label className="text-sm font-medium text-gray-700 block mb-1">Nama Bank</label>
-                        <input value={settings.bank_name} onChange={e => updateField('bank_name', e.target.value)}
-                          placeholder="Contoh: BCA"
-                          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-orange-400 transition" />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-700 block mb-1">Nomor Rekening</label>
-                        <input value={settings.bank_account_number} onChange={e => updateField('bank_account_number', e.target.value)}
-                          placeholder="1234567890"
-                          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-orange-400 transition" />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="text-sm font-medium text-gray-700 block mb-1">Atas Nama</label>
-                        <input value={settings.bank_account_holder} onChange={e => updateField('bank_account_holder', e.target.value)}
-                          placeholder="Nama pemilik rekening"
-                          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-orange-400 transition" />
-                      </div>
-                    </div>
-
-                    <div className="border-t border-gray-100 pt-5">
-                      <label className="text-sm font-medium text-gray-700 block mb-1">Pajak / Service Charge (%)</label>
-                      <input type="number" min={0} max={100} value={settings.tax_percent}
-                        onChange={e => updateField('tax_percent', Number(e.target.value) || 0)}
-                        className="w-32 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-orange-400 transition" />
-                      <p className="text-xs text-gray-400 mt-1">Diterapkan otomatis ke total transaksi kasir dan pesanan online.</p>
-                    </div>
-                  </div>
-                )}
+                {/* Tab "Rekening & Pajak" dihapus — pakai payment gateway (Midtrans). */}
 
                 {/* ===== TAB: NOTIFIKASI ===== */}
                 {activeTab === 'notifikasi' && (

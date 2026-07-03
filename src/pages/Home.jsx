@@ -8,17 +8,66 @@ import { ShoppingBagIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/r
 export default function Home() {
   const [popularFoods, setPopularFoods] = useState([])
   const [testimonials, setTestimonials] = useState([])
+  const [settings, setSettings] = useState(null)
   const scrollRef = useRef()
 
+  // ── Ambil data dari Supabase ──────────────────────────────────────────────
   useEffect(() => {
-    supabase.from('foods').select('*, categories(name)')
-      .eq('is_available', true).limit(3)
-      .then(({ data }) => setPopularFoods(data || []))
+    // 1) Settings toko — satu baris JSON di app_settings (id=1), kolom `value`.
+    supabase.from('app_settings').select('value').eq('id', 1).maybeSingle()
+      .then(({ data }) => setSettings(data?.value || null))
 
+    // 2) Menu paling populer — diurutkan dari jumlah terjual sungguhan
+    loadPopular()
+
+    // 3) Testimoni
     supabase.from('testimonials').select('*')
       .order('created_at', { ascending: false })
       .then(({ data }) => setTestimonials(data || []))
   }, [])
+
+  async function loadPopular() {
+    // Hitung total terjual per menu dari order_items
+    const { data: rows } = await supabase.from('order_items').select('food_id, quantity')
+    const counts = {}
+    ;(rows || []).forEach(r => {
+      if (!r.food_id) return
+      counts[r.food_id] = (counts[r.food_id] || 0) + (r.quantity || 1)
+    })
+    const topIds = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id]) => id)
+
+    if (topIds.length > 0) {
+      const { data } = await supabase.from('foods')
+        .select('*, categories(name)')
+        .in('id', topIds)
+        .eq('is_available', true)
+      // pertahankan urutan populernya
+      const ordered = topIds.map(id => (data || []).find(f => String(f.id) === String(id))).filter(Boolean)
+      if (ordered.length > 0) { setPopularFoods(ordered); return }
+    }
+
+    // Fallback: kalau belum ada penjualan, tampilkan 3 menu tersedia
+    const { data } = await supabase.from('foods').select('*, categories(name)')
+      .eq('is_available', true).limit(3)
+    setPopularFoods(data || [])
+  }
+
+  // ── Helper baca settings dengan fallback aman ─────────────────────────────
+  // Key sesuai app_settings.value dari halaman AdminSettings.
+  const store = {
+    name: settings?.store_name || 'Dapur Teh Yeyen',
+    description: settings?.store_description ||
+      'Masakan rumahan yang lezat, sehat, dan terjangkau untuk keluarga Indonesia.',
+    aboutText: settings?.store_description ||
+      'Kami menyajikan makanan sehat dan lezat yang mudah dijangkau. Setiap hidangan dibuat dengan cinta menggunakan bahan-bahan segar pilihan. Kepuasan pelanggan adalah prioritas utama kami.',
+    address: settings?.store_address || 'Jakarta, Indonesia',
+    phone: settings?.store_phone || '+62 812-3456-7890',
+    email: settings?.store_email || 'dapur@tehyeyen.com', // tidak ada di settings; fallback statis
+    logo: settings?.logo_url ||
+      'https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/rawr.png',
+    // Jam operasional: array [{ day, open, close, closed }]
+    hours: Array.isArray(settings?.operational_hours) ? settings.operational_hours : null,
+  }
 
   const scroll = (dir) => {
     const el = scrollRef.current
@@ -48,7 +97,7 @@ export default function Home() {
               <span className="text-orange-500">Delicious</span> Food
             </h1>
             <p className="text-gray-500 text-lg mb-8 max-w-md leading-relaxed">
-              Masakan rumahan yang lezat dan sehat, dibuat dengan bahan-bahan pilihan terbaik setiap harinya.
+              {store.description}
             </p>
             <Link to="/menu"
               className="inline-flex items-center gap-2 bg-orange-500 text-white px-8 py-4 rounded-full font-semibold text-lg hover:bg-orange-600 transition-all hover:scale-105 shadow-lg shadow-orange-200">
@@ -105,7 +154,7 @@ export default function Home() {
               About <span className="text-orange-500">Us</span>
             </h2>
             <p className="text-gray-500 leading-relaxed mb-6">
-              Kami menyajikan makanan sehat dan lezat yang mudah dijangkau. Setiap hidangan dibuat dengan cinta menggunakan bahan-bahan segar pilihan. Kepuasan pelanggan adalah prioritas utama kami.
+              {store.aboutText}
             </p>
             <Link to="/menu"
               className="border-2 border-orange-500 text-orange-500 px-6 py-3 rounded-full font-semibold hover:bg-orange-500 hover:text-white transition">
@@ -262,29 +311,39 @@ export default function Home() {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <img
-                src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/rawr.png"
+                src={store.logo}
                 alt="Logo" className="h-8 w-auto object-contain"
                 onError={e => { e.target.style.display='none' }}
               />
               <span className="text-lg font-black text-orange-500" style={{ fontFamily: 'Playfair Display, serif' }}>
-                Dapur Teh Yeyen
+                {store.name}
               </span>
             </div>
             <p className="text-gray-400 text-sm leading-relaxed">
-              Masakan rumahan yang lezat, sehat, dan terjangkau untuk keluarga Indonesia.
+              {store.description}
             </p>
           </div>
           <div>
             <h4 className="font-semibold mb-4 text-white">Jam Buka</h4>
-            <p className="text-gray-400 text-sm mb-1">Senin – Jumat: 09.00 – 18.00</p>
-            <p className="text-gray-400 text-sm mb-1">Sabtu: 09.00 – 16.00</p>
-            <p className="text-gray-400 text-sm">Minggu: Tutup</p>
+            {store.hours ? (
+              store.hours.map((h, i) => (
+                <p key={i} className="text-gray-400 text-sm mb-1">
+                  {h.day}: {h.closed ? 'Tutup' : `${h.open} – ${h.close}`}
+                </p>
+              ))
+            ) : (
+              <>
+                <p className="text-gray-400 text-sm mb-1">Senin – Jumat: 09.00 – 18.00</p>
+                <p className="text-gray-400 text-sm mb-1">Sabtu: 09.00 – 16.00</p>
+                <p className="text-gray-400 text-sm">Minggu: Tutup</p>
+              </>
+            )}
           </div>
           <div>
             <h4 className="font-semibold mb-4 text-white">Kontak</h4>
-            <p className="text-gray-400 text-sm mb-1">Jakarta, Indonesia</p>
-            <p className="text-gray-400 text-sm mb-1">+62 812-3456-7890</p>
-            <p className="text-gray-400 text-sm">dapur@tehyeyen.com</p>
+            <p className="text-gray-400 text-sm mb-1">{store.address}</p>
+            <p className="text-gray-400 text-sm mb-1">{store.phone}</p>
+            <p className="text-gray-400 text-sm">{store.email}</p>
           </div>
           <div>
             <h4 className="font-semibold mb-4 text-white">Newsletter</h4>
@@ -302,7 +361,7 @@ export default function Home() {
         {/* Bottom bar */}
         <div className="max-w-6xl mx-auto px-8 mt-10 pt-6 border-t border-gray-800 flex items-center justify-between">
           <p className="text-gray-500 text-sm">
-            © {new Date().getFullYear()} Dapur Teh Yeyen. All rights reserved.
+            © {new Date().getFullYear()} {store.name}. All rights reserved.
           </p>
           <div className="flex gap-6">
             <Link to="/menu" className="text-gray-500 text-sm hover:text-orange-500 transition">Menu</Link>

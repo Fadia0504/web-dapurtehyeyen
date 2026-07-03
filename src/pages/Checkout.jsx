@@ -5,23 +5,37 @@ import { useCartStore } from '../store/cartStore'
 import { useAuthStore } from '../store/authStore'
 import { ChevronLeftIcon, ShieldCheckIcon, CalendarDaysIcon } from '@heroicons/react/24/outline'
 import Swal from 'sweetalert2'
+import LocationPicker from '../components/LocationPicker'
+import { buildConfig, hitungOngkir, formatKm } from '../lib/ongkir'
 
 export default function Checkout() {
   const { items, total, clearCart } = useCartStore()
   const { user, profile } = useAuthStore()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
-  const [form, setForm] = useState({ name: '', phone: '', address: '', notes: '' })
+  const [form, setForm] = useState({ name: '', phone: '', detail: '', notes: '' })
   const [deliveryDate, setDeliveryDate] = useState('')
+  const [deliveryLoc, setDeliveryLoc] = useState(null) // { lat, lng, address }
+  const [settings, setSettings] = useState(null)
 
-  // Tanggal pengiriman minimal H+1 dari hari ini
+  // Config ongkir & titik toko dari admin settings (fallback ke default)
+  const { origin, cfg } = buildConfig(settings || {})
+
+  const subtotal = total()
+  const ongkir = deliveryLoc
+    ? hitungOngkir(deliveryLoc, subtotal, cfg, origin)
+    : null
+  const shippingFee = ongkir?.reachable ? ongkir.fee : 0
+  const grandTotal = subtotal + shippingFee
+
+  // Tanggal pengiriman minimal H+n sesuai setting (default H+1)
+  const minDays = settings?.min_delivery_days_online ?? 1
   const minDate = (() => {
     const d = new Date()
-    d.setDate(d.getDate() + 1)
+    d.setDate(d.getDate() + minDays)
     return d.toISOString().split('T')[0]
   })()
 
-  // Batas maksimal opsional: 30 hari ke depan
   const maxDate = (() => {
     const d = new Date()
     d.setDate(d.getDate() + 30)
@@ -33,12 +47,16 @@ export default function Checkout() {
   }, [])
 
   useEffect(() => {
+    supabase.from('app_settings').select('value').eq('id', 1).maybeSingle()
+      .then(({ data }) => setSettings(data?.value || null))
+  }, [])
+
+  useEffect(() => {
     if (profile) {
       setForm(prev => ({
         ...prev,
         name: profile.full_name || '',
         phone: profile.phone || '',
-        address: profile.address || '',
       }))
     }
   }, [profile])
@@ -52,41 +70,41 @@ export default function Checkout() {
   }
 
   const handleSubmit = async () => {
-    if (!form.name || !form.phone || !form.address) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Data Belum Lengkap',
-        text: 'Mohon isi semua field yang wajib diisi!',
-        confirmButtonColor: '#f97316',
-        customClass: { popup: 'rounded-2xl' }
-      })
-      return
+    if (!form.name || !form.phone) {
+      return warn('Data Belum Lengkap', 'Mohon isi nama dan nomor WhatsApp.')
     }
-
+    if (!deliveryLoc) {
+      return warn('Titik Lokasi Belum Dipilih', 'Tentukan titik pengiriman di peta terlebih dahulu.')
+    }
+    if (!ongkir?.reachable) {
+      return warn('Di Luar Jangkauan', `Lokasi terlalu jauh (${formatKm(ongkir?.distanceKm)}). Maksimal ${cfg.maxDistanceKm} km dari toko.`)
+    }
+    if (!form.detail) {
+      return warn('Detail Alamat Kosong', 'Isi detail alamat (patokan, no. rumah, blok) agar kurir mudah menemukan.')
+    }
     if (!deliveryDate) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Tanggal Pengiriman Belum Dipilih',
-        text: 'Harap pilih tanggal kapan pesanan ini ingin dikirim.',
-        confirmButtonColor: '#f97316',
-        customClass: { popup: 'rounded-2xl' }
-      })
-      return
+      return warn('Tanggal Pengiriman Belum Dipilih', 'Harap pilih tanggal kapan pesanan ini ingin dikirim.')
     }
 
     setLoading(true)
     try {
       const cartItems = [...items]
-      const cartTotal = total()
+      const fullAddress = `${form.detail}\n${deliveryLoc.address || ''}`.trim()
 
       const { data: order, error } = await supabase.from('orders').insert({
         user_id: user?.id || null,
-        total: cartTotal,
-        status: 'waiting_payment', // belum masuk ke admin sebelum bayar
+        subtotal: subtotal,
+        shipping_cost: shippingFee,
+        distance_km: ongkir.distanceKm ? Number(ongkir.distanceKm.toFixed(2)) : null,
+        total: grandTotal,
+        status: 'waiting_payment',
         payment_status: 'unpaid',
+        source: 'online',
         customer_name: form.name,
         customer_phone: form.phone,
-        customer_address: form.address,
+        customer_address: fullAddress,
+        delivery_lat: deliveryLoc.lat,
+        delivery_lng: deliveryLoc.lng,
         notes: form.notes,
         delivery_date: deliveryDate,
       }).select().single()
@@ -105,19 +123,19 @@ export default function Checkout() {
 
       clearCart()
       navigate('/payment', { state: { order } })
-
     } catch (err) {
       console.error(err)
       Swal.fire({
-        icon: 'error',
-        title: 'Terjadi Kesalahan',
-        text: err.message,
-        confirmButtonColor: '#f97316',
-        customClass: { popup: 'rounded-2xl' }
+        icon: 'error', title: 'Terjadi Kesalahan', text: err.message,
+        confirmButtonColor: '#f97316', customClass: { popup: 'rounded-2xl' }
       })
     } finally {
       setLoading(false)
     }
+  }
+
+  function warn(title, text) {
+    Swal.fire({ icon: 'warning', title, text, confirmButtonColor: '#f97316', customClass: { popup: 'rounded-2xl' } })
   }
 
   if (items.length === 0) return null
@@ -131,10 +149,10 @@ export default function Checkout() {
         </Link>
 
         <h1 className="text-2xl font-bold text-gray-800 tracking-tight mb-1">Checkout</h1>
-        <p className="text-gray-400 text-sm mb-6">Lengkapi data pengiriman untuk melanjutkan pesananmu.</p>
+        <p className="text-gray-400 text-sm mb-6">Tentukan titik antar & lengkapi data pengiriman.</p>
 
-        <div className="grid grid-cols-3 gap-6">
-          <div className="col-span-2 space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-4">
             <div className="bg-white rounded-2xl p-6 shadow-sm">
               <h2 className="font-bold text-gray-800 mb-4">Data Pengiriman</h2>
               <div className="space-y-4">
@@ -149,11 +167,28 @@ export default function Checkout() {
                       className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-400 transition" />
                   </div>
                 ))}
+
+                {/* PETA PILIH TITIK */}
+                <LocationPicker
+                  value={deliveryLoc}
+                  onChange={setDeliveryLoc}
+                  origin={origin}
+                  subtotal={subtotal}
+                  config={cfg}
+                />
+
+                {/* Alamat hasil geocode (read-only ringkas) */}
+                {deliveryLoc?.address && (
+                  <div className="bg-gray-50 rounded-xl px-4 py-3 text-xs text-gray-500">
+                    <span className="font-semibold text-gray-600">Alamat terdeteksi:</span> {deliveryLoc.address}
+                  </div>
+                )}
+
                 <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1">Alamat Lengkap *</label>
-                  <textarea name="address" value={form.address} onChange={handleChange}
-                    placeholder="Jalan, No. Rumah, RT/RW, Kelurahan, Kecamatan..."
-                    rows={3}
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Detail Alamat *</label>
+                  <textarea name="detail" value={form.detail} onChange={handleChange}
+                    placeholder="No. rumah, blok, RT/RW, warna pagar, patokan…"
+                    rows={2}
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-400 transition resize-none" />
                 </div>
 
@@ -232,9 +267,27 @@ export default function Checkout() {
                 </div>
               )}
 
-              <div className="border-t border-gray-100 pt-3 flex justify-between font-bold text-lg">
-                <span>Total</span>
-                <span className="text-orange-500">Rp {total().toLocaleString('id-ID')}</span>
+              {/* Rincian biaya */}
+              <div className="border-t border-gray-100 pt-3 space-y-2 text-sm">
+                <div className="flex justify-between text-gray-500">
+                  <span>Subtotal</span>
+                  <span>Rp {subtotal.toLocaleString('id-ID')}</span>
+                </div>
+                <div className="flex justify-between text-gray-500">
+                  <span>
+                    Ongkir {ongkir?.reachable && ongkir.distanceKm != null && `(${formatKm(ongkir.distanceKm)})`}
+                  </span>
+                  <span>
+                    {!deliveryLoc ? '—'
+                      : !ongkir?.reachable ? '—'
+                      : ongkir.isFree ? 'Gratis'
+                      : `Rp ${shippingFee.toLocaleString('id-ID')}`}
+                  </span>
+                </div>
+                <div className="flex justify-between font-bold text-lg pt-2 border-t border-gray-100">
+                  <span>Total</span>
+                  <span className="text-orange-500">Rp {grandTotal.toLocaleString('id-ID')}</span>
+                </div>
               </div>
             </div>
 

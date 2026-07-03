@@ -38,6 +38,28 @@ function toWIBDateStr(utcStr) {
   return wib.toISOString().slice(0, 10)
 }
 
+// Info jadwal kirim relatif terhadap hari ini (untuk badge di admin)
+function deliveryInfo(dateStr) {
+  if (!dateStr) return null
+  const todayWIB = toWIBDateStr(new Date().toISOString())
+  const target = dateStr.slice(0, 10)
+  const diffDays = Math.round(
+    (new Date(target + 'T00:00:00') - new Date(todayWIB + 'T00:00:00')) / 86400000
+  )
+  const label = new Date(target + 'T00:00:00').toLocaleDateString('id-ID', {
+    weekday: 'short', day: 'numeric', month: 'short',
+  })
+  let tag, color
+  if (diffDays < 0) { tag = `Terlambat ${Math.abs(diffDays)} hari`; color = 'bg-red-100 text-red-600 border-red-200' }
+  else if (diffDays === 0) { tag = 'Hari ini'; color = 'bg-orange-100 text-orange-600 border-orange-200' }
+  else if (diffDays === 1) { tag = 'Besok'; color = 'bg-yellow-100 text-yellow-700 border-yellow-200' }
+  else { tag = `H-${diffDays}`; color = 'bg-gray-100 text-gray-500 border-gray-200' }
+  return { diffDays, label, tag, color, dateStr: target }
+}
+
+// status yang masih perlu dikirim (belum selesai/batal)
+const ACTIVE_DELIVERY = ['confirmed', 'processing', 'delivered']
+
 export default function AdminOrders() {
   const { profile } = useAuthStore()
   const adminDropRef = useRef()
@@ -59,6 +81,8 @@ export default function AdminOrders() {
   const [dateTo, setDateTo] = useState('')
   const [tempDateFrom, setTempDateFrom] = useState('')
   const [tempDateTo, setTempDateTo] = useState('')
+
+  const [sortByDelivery, setSortByDelivery] = useState(false)
 
   const [showFilterPanel, setShowFilterPanel] = useState(false)
   const [filterSearch, setFilterSearch] = useState('')
@@ -178,8 +202,28 @@ export default function AdminOrders() {
     return matchTab && matchDate && matchSearch && matchMin && matchMax
   })
 
-  const totalPages = Math.ceil(filtered.length / perPage)
-  const paginated = filtered.slice((page - 1) * perPage, page * perPage)
+  const sorted = sortByDelivery
+    ? [...filtered].sort((a, b) => {
+        // yang belum ada tanggal ditaruh paling bawah
+        if (!a.delivery_date) return 1
+        if (!b.delivery_date) return -1
+        return a.delivery_date.localeCompare(b.delivery_date)
+      })
+    : filtered
+
+  const totalPages = Math.ceil(sorted.length / perPage)
+  const paginated = sorted.slice((page - 1) * perPage, page * perPage)
+
+  // Pesanan yang harus dikirim hari ini (aktif & belum selesai)
+  const dueTodayCount = orders.filter(o =>
+    ACTIVE_DELIVERY.includes(o.status) &&
+    o.delivery_date && deliveryInfo(o.delivery_date)?.diffDays === 0
+  ).length
+
+  const overdueCount = orders.filter(o =>
+    ACTIVE_DELIVERY.includes(o.status) &&
+    o.delivery_date && deliveryInfo(o.delivery_date)?.diffDays < 0
+  ).length
 
   const countByStatus = (key) => {
     if (key === 'all') return orders.filter(o => o.status !== 'waiting_payment').length
@@ -356,6 +400,15 @@ export default function AdminOrders() {
                 )}
               </div>
 
+              {/* Urutkan berdasarkan jadwal kirim */}
+              <button onClick={() => { setSortByDelivery(s => !s); setPage(1) }}
+                className={`flex items-center gap-2 border rounded-xl px-4 py-2.5 text-sm font-medium transition ${
+                  sortByDelivery ? 'border-orange-400 bg-orange-50 text-orange-600' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                }`}>
+                <TruckIcon className="w-4 h-4" />
+                Urut Jadwal Kirim
+              </button>
+
               {hasAnyFilter && (
                 <button onClick={handleResetAll}
                   className="text-sm text-red-400 hover:text-red-600 font-medium transition whitespace-nowrap">
@@ -364,6 +417,28 @@ export default function AdminOrders() {
               )}
             </div>
           </div>
+
+          {/* Banner jadwal kirim */}
+          {(dueTodayCount > 0 || overdueCount > 0) && (
+            <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TruckIcon className="w-5 h-5 text-orange-500 flex-shrink-0" />
+                <p className="text-sm text-gray-700">
+                  {dueTodayCount > 0 && (
+                    <span><span className="font-semibold text-orange-600">{dueTodayCount} pesanan</span> harus dikirim hari ini</span>
+                  )}
+                  {dueTodayCount > 0 && overdueCount > 0 && ' • '}
+                  {overdueCount > 0 && (
+                    <span className="text-red-600 font-semibold">{overdueCount} pesanan sudah lewat jadwal</span>
+                  )}
+                </p>
+              </div>
+              <button onClick={() => { setSortByDelivery(true); setPage(1) }}
+                className="text-xs text-orange-600 font-semibold hover:underline whitespace-nowrap">
+                Urutkan jadwal →
+              </button>
+            </div>
+          )}
 
           {/* Info banner waiting_payment */}
           {waitingPaymentCount > 0 && activeTab !== 'waiting_payment' && (
@@ -430,6 +505,7 @@ export default function AdminOrders() {
                   <th className="px-4 py-4 text-xs font-semibold text-gray-400">Tanggal</th>
                   <th className="px-4 py-4 text-xs font-semibold text-gray-400">Pelanggan</th>
                   <th className="px-4 py-4 text-xs font-semibold text-gray-400">Pengiriman</th>
+                  <th className="px-4 py-4 text-xs font-semibold text-gray-400">Jadwal Kirim</th>
                   <th className="px-4 py-4 text-xs font-semibold text-gray-400">Total</th>
                   <th className="px-4 py-4 text-xs font-semibold text-gray-400">Status</th>
                   <th className="px-4 py-4 text-xs font-semibold text-gray-400">Pembayaran</th>
@@ -440,14 +516,14 @@ export default function AdminOrders() {
                 {loading ? (
                   [...Array(5)].map((_, i) => (
                     <tr key={i} className="border-b border-gray-50">
-                      <td colSpan={8} className="px-6 py-4">
+                      <td colSpan={9} className="px-6 py-4">
                         <div className="h-10 bg-gray-100 rounded-xl animate-pulse" />
                       </td>
                     </tr>
                   ))
                 ) : paginated.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-16 text-gray-400">
+                    <td colSpan={9} className="text-center py-16 text-gray-400">
                       <FunnelIcon className="w-10 h-10 text-gray-200 mx-auto mb-2" />
                       <p className="font-medium text-gray-500">Tidak ada pesanan ditemukan</p>
                       <p className="text-sm mt-1">Coba ubah filter atau tab status</p>
@@ -482,6 +558,23 @@ export default function AdminOrders() {
                             {order.customer_address || '-'}
                           </p>
                         </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        {(() => {
+                          const di = deliveryInfo(order.delivery_date)
+                          if (!di) return <span className="text-xs text-gray-300">-</span>
+                          const showTag = ACTIVE_DELIVERY.includes(order.status)
+                          return (
+                            <div>
+                              <p className="text-sm text-gray-800">{di.label}</p>
+                              {showTag && (
+                                <span className={`inline-block mt-1 text-[11px] px-2 py-0.5 rounded-full font-medium border ${di.color}`}>
+                                  {di.tag}
+                                </span>
+                              )}
+                            </div>
+                          )
+                        })()}
                       </td>
                       <td className="px-4 py-4">
                         <p className="font-bold text-gray-800 text-sm">
@@ -646,6 +739,48 @@ export default function AdminOrders() {
                       <span className="font-medium text-gray-800 text-right max-w-[220px]">{item.value || '-'}</span>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* Jadwal & Pengiriman */}
+              <div className="bg-orange-50 rounded-2xl p-4">
+                <h3 className="font-semibold text-gray-800 text-sm mb-3">Jadwal & Pengiriman</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-500">Tanggal Kirim</span>
+                    {(() => {
+                      const di = deliveryInfo(selectedOrder.delivery_date)
+                      if (!di) return <span className="font-medium text-gray-400">Belum ditentukan</span>
+                      return (
+                        <span className="flex items-center gap-2">
+                          <span className="font-medium text-gray-800">{di.label}</span>
+                          {ACTIVE_DELIVERY.includes(selectedOrder.status) && (
+                            <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium border ${di.color}`}>{di.tag}</span>
+                          )}
+                        </span>
+                      )
+                    })()}
+                  </div>
+                  {selectedOrder.distance_km != null && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Jarak</span>
+                      <span className="font-medium text-gray-800">{selectedOrder.distance_km} km</span>
+                    </div>
+                  )}
+                  {selectedOrder.shipping_cost != null && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Ongkir</span>
+                      <span className="font-medium text-gray-800">Rp {Number(selectedOrder.shipping_cost).toLocaleString('id-ID')}</span>
+                    </div>
+                  )}
+                  {selectedOrder.delivery_lat != null && selectedOrder.delivery_lng != null && (
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${selectedOrder.delivery_lat},${selectedOrder.delivery_lng}`}
+                      target="_blank" rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 mt-1 text-xs font-semibold text-orange-600 hover:underline">
+                      📍 Buka titik lokasi di Google Maps
+                    </a>
+                  )}
                 </div>
               </div>
 
