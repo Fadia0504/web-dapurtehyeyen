@@ -17,6 +17,7 @@ export default function Checkout() {
   const [deliveryDate, setDeliveryDate] = useState('')
   const [deliveryLoc, setDeliveryLoc] = useState(null) // { lat, lng, address }
   const [settings, setSettings] = useState(null)
+  const [paymentMethod, setPaymentMethod] = useState('online') // 'online' | 'cod'
 
   // Config ongkir & titik toko dari admin settings (fallback ke default)
   const { origin, cfg } = buildConfig(settings || {})
@@ -90,6 +91,7 @@ export default function Checkout() {
     try {
       const cartItems = [...items]
       const fullAddress = `${form.detail}\n${deliveryLoc.address || ''}`.trim()
+      const isCod = paymentMethod === 'cod'
 
       const { data: order, error } = await supabase.from('orders').insert({
         user_id: user?.id || null,
@@ -97,8 +99,10 @@ export default function Checkout() {
         shipping_cost: shippingFee,
         distance_km: ongkir.distanceKm ? Number(ongkir.distanceKm.toFixed(2)) : null,
         total: grandTotal,
-        status: 'waiting_payment',
+        // COD langsung masuk antrean admin (pending). Online tunggu bayar dulu.
+        status: isCod ? 'pending' : 'waiting_payment',
         payment_status: 'unpaid',
+        payment_method: isCod ? 'cod' : null,
         source: 'online',
         customer_name: form.name,
         customer_phone: form.phone,
@@ -122,7 +126,19 @@ export default function Checkout() {
       if (itemsError) throw itemsError
 
       clearCart()
-      navigate('/payment', { state: { order } })
+
+      if (isCod) {
+        await Swal.fire({
+          icon: 'success',
+          title: 'Pesanan COD Dibuat!',
+          text: 'Pesananmu langsung diteruskan ke admin. Siapkan uang tunai saat pesanan tiba ya.',
+          confirmButtonColor: '#f97316',
+          customClass: { popup: 'rounded-2xl' },
+        })
+        navigate('/dashboard')
+      } else {
+        navigate('/payment', { state: { order } })
+      }
     } catch (err) {
       console.error(err)
       Swal.fire({
@@ -229,11 +245,43 @@ export default function Checkout() {
               </div>
             </div>
 
-            <div className="bg-blue-50 rounded-2xl p-5">
-              <p className="text-sm font-semibold text-blue-700 mb-1">Metode Pembayaran</p>
-              <p className="text-xs text-blue-500 leading-relaxed">
-                Kamu bisa memilih metode pembayaran di halaman berikutnya. Tersedia Transfer Bank, Virtual Account, GoPay, ShopeePay, QRIS, Kartu Kredit, Indomaret, dan Alfamart.
-              </p>
+            <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <h2 className="font-bold text-gray-800 mb-4">Metode Pembayaran</h2>
+              <div className="space-y-3">
+                <button type="button" onClick={() => setPaymentMethod('online')}
+                  className={`w-full text-left rounded-2xl border-2 p-4 transition flex items-start gap-3 ${
+                    paymentMethod === 'online' ? 'border-orange-400 bg-orange-50' : 'border-gray-200 hover:border-orange-200'
+                  }`}>
+                  <span className={`mt-0.5 w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                    paymentMethod === 'online' ? 'border-orange-500' : 'border-gray-300'
+                  }`}>
+                    {paymentMethod === 'online' && <span className="w-2 h-2 rounded-full bg-orange-500" />}
+                  </span>
+                  <span>
+                    <span className="block text-sm font-semibold text-gray-800">Bayar Sekarang (Non-Tunai)</span>
+                    <span className="block text-xs text-gray-500 mt-0.5 leading-relaxed">
+                      Transfer Bank, Virtual Account, GoPay, ShopeePay, QRIS, Kartu Kredit, Indomaret & Alfamart. Pesanan diproses setelah pembayaran berhasil.
+                    </span>
+                  </span>
+                </button>
+
+                <button type="button" onClick={() => setPaymentMethod('cod')}
+                  className={`w-full text-left rounded-2xl border-2 p-4 transition flex items-start gap-3 ${
+                    paymentMethod === 'cod' ? 'border-orange-400 bg-orange-50' : 'border-gray-200 hover:border-orange-200'
+                  }`}>
+                  <span className={`mt-0.5 w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                    paymentMethod === 'cod' ? 'border-orange-500' : 'border-gray-300'
+                  }`}>
+                    {paymentMethod === 'cod' && <span className="w-2 h-2 rounded-full bg-orange-500" />}
+                  </span>
+                  <span>
+                    <span className="block text-sm font-semibold text-gray-800">Bayar di Tempat / COD (Tunai)</span>
+                    <span className="block text-xs text-gray-500 mt-0.5 leading-relaxed">
+                      Bayar tunai ke kurir saat pesanan tiba. Pesanan langsung diproses tanpa bayar di muka.
+                    </span>
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -296,7 +344,7 @@ export default function Checkout() {
               {loading ? (
                 <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Memproses...</>
               ) : (
-                'Lanjut ke Pembayaran →'
+                paymentMethod === 'cod' ? 'Buat Pesanan COD →' : 'Lanjut ke Pembayaran →'
               )}
             </button>
 

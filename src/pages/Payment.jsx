@@ -174,6 +174,26 @@ export default function Payment() {
     return null
   }
 
+  // Pesanan COD tidak melalui Midtrans
+  if (order.payment_method === 'cod') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="bg-white rounded-3xl shadow-sm p-8 w-full max-w-md text-center">
+          <div className="w-16 h-16 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-4 text-3xl">💵</div>
+          <h1 className="text-xl font-bold text-gray-800 mb-2">Pesanan COD</h1>
+          <p className="text-gray-500 text-sm mb-6">
+            Pesanan ini dibayar tunai saat barang tiba, jadi tidak perlu pembayaran online.
+            Pesananmu sudah diteruskan ke admin untuk diproses.
+          </p>
+          <button onClick={() => navigate('/dashboard')}
+            className="w-full bg-orange-500 text-white py-3 rounded-2xl font-bold hover:bg-orange-600 transition">
+            Ke Dashboard
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="bg-white rounded-3xl shadow-sm p-8 w-full max-w-md">

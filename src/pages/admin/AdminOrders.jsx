@@ -122,6 +122,25 @@ export default function AdminOrders() {
     await fetchOrders()
   }
 
+  // Tandai pembayaran COD sudah diterima kurir
+  const handleMarkPaid = async (orderId) => {
+    const result = await Swal.fire({
+      icon: 'question',
+      title: 'Uang Sudah Diterima?',
+      text: 'Tandai pesanan COD ini sebagai Lunas.',
+      showCancelButton: true,
+      confirmButtonColor: '#16a34a',
+      cancelButtonColor: '#e5e7eb',
+      confirmButtonText: 'Ya, Lunas',
+      cancelButtonText: 'Batal',
+      customClass: { popup: 'rounded-2xl', cancelButton: '!text-gray-700' },
+    })
+    if (!result.isConfirmed) return
+    await supabase.from('orders').update({ payment_status: 'paid' }).eq('id', orderId)
+    if (selectedOrder?.id === orderId) setSelectedOrder(prev => ({ ...prev, payment_status: 'paid' }))
+    await fetchOrders()
+  }
+
   const handleLogout = async () => {
     const result = await Swal.fire({
       icon: 'question',
@@ -587,19 +606,26 @@ export default function AdminOrders() {
                         </span>
                       </td>
                       <td className="px-4 py-4">
-                        {order.payment_status === 'paid' ? (
-                          <span className="text-xs px-3 py-1.5 rounded-full font-medium bg-green-100 text-green-700 border border-green-200">
-                            Lunas
-                          </span>
-                        ) : order.payment_status === 'pending' ? (
-                          <span className="text-xs px-3 py-1.5 rounded-full font-medium bg-yellow-100 text-yellow-700 border border-yellow-200">
-                            Pending
-                          </span>
-                        ) : (
-                          <span className="text-xs px-3 py-1.5 rounded-full font-medium bg-red-100 text-red-500 border border-red-200">
-                            Belum Bayar
-                          </span>
-                        )}
+                        <div className="flex flex-col items-start gap-1">
+                          {order.payment_status === 'paid' ? (
+                            <span className="text-xs px-3 py-1.5 rounded-full font-medium bg-green-100 text-green-700 border border-green-200">
+                              Lunas
+                            </span>
+                          ) : order.payment_status === 'pending' ? (
+                            <span className="text-xs px-3 py-1.5 rounded-full font-medium bg-yellow-100 text-yellow-700 border border-yellow-200">
+                              Pending
+                            </span>
+                          ) : (
+                            <span className="text-xs px-3 py-1.5 rounded-full font-medium bg-red-100 text-red-500 border border-red-200">
+                              Belum Bayar
+                            </span>
+                          )}
+                          {order.payment_method === 'cod' && (
+                            <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-purple-100 text-purple-600 border border-purple-200">
+                              COD
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-2">
@@ -724,6 +750,20 @@ export default function AdminOrders() {
                   {formatDateTime(selectedOrder.created_at).date} • {formatDateTime(selectedOrder.created_at).time}
                 </p>
               </div>
+
+              {/* Aksi COD — tandai uang diterima */}
+              {selectedOrder.payment_method === 'cod' && selectedOrder.payment_status !== 'paid' && (
+                <div className="bg-purple-50 border border-purple-100 rounded-2xl p-4 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-purple-700">Pesanan COD — belum dibayar</p>
+                    <p className="text-xs text-purple-500 mt-0.5">Tandai lunas setelah kurir menerima uang tunai dari pelanggan.</p>
+                  </div>
+                  <button onClick={() => handleMarkPaid(selectedOrder.id)}
+                    className="flex-shrink-0 bg-green-600 text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-green-700 transition">
+                    Uang Diterima
+                  </button>
+                </div>
+              )}
 
               <div className="bg-gray-50 rounded-2xl p-4">
                 <h3 className="font-semibold text-gray-800 text-sm mb-3">Info Pelanggan</h3>
