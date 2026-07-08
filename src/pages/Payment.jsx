@@ -25,10 +25,8 @@ export default function Payment() {
     document.head.appendChild(script)
   }, [])
 
-  // Kalau dari dashboard "Lanjut Bayar", ambil order terbaru dari DB
   useEffect(() => {
     if (order?.id && !order.snap_token) {
-      // refresh order dari DB untuk cek snap_token terbaru
       supabase.from('orders').select('*').eq('id', order.id).single()
         .then(({ data }) => { if (data) setOrder(data) })
     }
@@ -52,7 +50,6 @@ export default function Payment() {
       let snapToken = order.snap_token
 
       if (!snapToken) {
-        // Belum ada token — request ke Midtrans
         const orderId = order.id.replace(/-/g, '').slice(0, 20)
         const amount = Math.round(order.total)
 
@@ -82,7 +79,6 @@ export default function Payment() {
 
         snapToken = data.token
 
-        // Simpan snap_token ke DB supaya tidak request ulang
         await supabase.from('orders')
           .update({ snap_token: snapToken })
           .eq('id', order.id)
@@ -174,7 +170,6 @@ export default function Payment() {
     return null
   }
 
-  // Pesanan COD tidak melalui Midtrans
   if (order.payment_method === 'cod') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">

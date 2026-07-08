@@ -16,7 +16,7 @@ export const ONGKIR_CONFIG = {
   perKmFee: 2500,       // tarif tiap km SETELAH baseDistanceKm
   minFee: 8000,         // ongkir tidak akan lebih murah dari ini
   maxDistanceKm: 15,    // di luar radius ini dianggap "tidak dijangkau"
-  freeAboveSubtotal: null, // opsional: gratis ongkir kalau subtotal >= nilai ini (mis. 200000). null = nonaktif
+  freeAboveSubtotal: 100000, // gratis ongkir kalau subtotal >= nilai ini. null = nonaktif
   roundTo: 500,         // pembulatan ongkir ke kelipatan ini
 }
 
@@ -35,27 +35,40 @@ export function haversineKm(a, b) {
   return 2 * R * Math.asin(Math.sqrt(h))
 }
 
-// Membangun config dari isi app_settings.value (JSON di tabel app_settings, id=1).
-// Panggil: const { origin, cfg } = buildConfig(settingsValue)
-export function buildConfig(value = {}) {
-  const origin = {
-    lat: num(value.store_lat, STORE_ORIGIN.lat),
-    lng: num(value.store_lng, STORE_ORIGIN.lng),
+// Membangun config dari SATU BARIS app_settings (id=1).
+// Anti-gagal: nilai ongkir bisa tersimpan sebagai KOLOM tersendiri
+// (origin_lat, ongkir_base_fee, ongkir_free_above, ...) ATAU di dalam JSON `value`
+// (store_lat, delivery_fee, min_order_free_ongkir, ...). Fungsi ini membaca dari mana pun.
+// Panggil: const { origin, cfg } = buildConfig(settingsRow)  // hasil select('*')
+export function buildConfig(s = {}) {
+  // gabungkan value JSON + kolom top-level (kolom menang bila nama sama)
+  const m = { ...(s && s.value ? s.value : {}), ...s }
+
+  const val = (x) => {
+    const n = Number(x)
+    return (x !== null && x !== undefined && x !== '' && Number.isFinite(n)) ? n : undefined
+  }
+  const first = (...cands) => {
+    for (const c of cands) { const n = val(c); if (n !== undefined) return n }
+    return undefined
   }
 
-  const baseFee = num(value.delivery_fee, ONGKIR_CONFIG.baseFee)
+  const lat = first(m.origin_lat, m.store_lat) ?? STORE_ORIGIN.lat
+  const lng = first(m.origin_lng, m.store_lng) ?? STORE_ORIGIN.lng
+  const baseFee = first(m.ongkir_base_fee, m.delivery_fee) ?? ONGKIR_CONFIG.baseFee
+  const freeAbove = first(m.ongkir_free_above, m.min_order_free_ongkir) ?? ONGKIR_CONFIG.freeAboveSubtotal
 
   const cfg = {
-    baseFee,                                                  // "Tarif Dasar" di settings
-    baseDistanceKm: num(value.delivery_base_km, ONGKIR_CONFIG.baseDistanceKm),
-    perKmFee: num(value.delivery_per_km, ONGKIR_CONFIG.perKmFee),
-    minFee: num(value.delivery_min_fee, baseFee),
-    maxDistanceKm: num(value.delivery_radius_km, ONGKIR_CONFIG.maxDistanceKm), // "Radius Pengiriman"
-    // min_order_free_ongkir: 0 dianggap nonaktif
-    freeAboveSubtotal: Number(value.min_order_free_ongkir) > 0 ? Number(value.min_order_free_ongkir) : null,
+    baseFee,
+    baseDistanceKm: first(m.ongkir_base_km, m.delivery_base_km) ?? ONGKIR_CONFIG.baseDistanceKm,
+    perKmFee: first(m.ongkir_per_km, m.delivery_per_km) ?? ONGKIR_CONFIG.perKmFee,
+    minFee: first(m.ongkir_min_fee, m.delivery_min_fee) ?? baseFee,
+    maxDistanceKm: first(m.ongkir_max_km, m.delivery_radius_km) ?? ONGKIR_CONFIG.maxDistanceKm,
+    // 0 / kosong dianggap nonaktif
+    freeAboveSubtotal: freeAbove && freeAbove > 0 ? freeAbove : null,
     roundTo: ONGKIR_CONFIG.roundTo,
   }
-  return { origin, cfg }
+  return { origin: { lat, lng }, cfg }
 }
 
 function num(v, fallback) {

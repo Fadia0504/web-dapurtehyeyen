@@ -51,7 +51,7 @@ export default function AdminKasir() {
 
   async function fetchData() {
     const [{ data: cats }, { data: foodData }] = await Promise.all([
-      supabase.from('categories').select('*').order('created_at'),
+      supabase.from('categories').select('*').neq('type', 'online').order('created_at'),
       supabase.from('foods').select('*, categories(name)').eq('is_available', true).eq('is_offline', true),
     ])
     setCategories(cats || [])

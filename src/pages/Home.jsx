@@ -11,13 +11,10 @@ export default function Home() {
   const [settings, setSettings] = useState(null)
   const scrollRef = useRef()
 
-  // ── Ambil data dari Supabase ──────────────────────────────────────────────
   useEffect(() => {
-    // 1) Settings toko — satu baris JSON di app_settings (id=1), kolom `value`.
     supabase.from('app_settings').select('value').eq('id', 1).maybeSingle()
       .then(({ data }) => setSettings(data?.value || null))
 
-    // 2) Menu paling populer — diurutkan dari jumlah terjual sungguhan
     loadPopular()
 
     // 3) Testimoni
@@ -27,7 +24,6 @@ export default function Home() {
   }, [])
 
   async function loadPopular() {
-    // Hitung total terjual per menu dari order_items
     const { data: rows } = await supabase.from('order_items').select('food_id, quantity')
     const counts = {}
     ;(rows || []).forEach(r => {
@@ -41,7 +37,6 @@ export default function Home() {
         .select('*, categories(name)')
         .in('id', topIds)
         .eq('is_available', true)
-      // pertahankan urutan populernya
       const ordered = topIds.map(id => (data || []).find(f => String(f.id) === String(id))).filter(Boolean)
       if (ordered.length > 0) { setPopularFoods(ordered); return }
     }
@@ -52,8 +47,6 @@ export default function Home() {
     setPopularFoods(data || [])
   }
 
-  // ── Helper baca settings dengan fallback aman ─────────────────────────────
-  // Key sesuai app_settings.value dari halaman AdminSettings.
   const store = {
     name: settings?.store_name || 'Dapur Teh Yeyen',
     description: settings?.store_description ||
@@ -62,10 +55,9 @@ export default function Home() {
       'Kami menyajikan makanan sehat dan lezat yang mudah dijangkau. Setiap hidangan dibuat dengan cinta menggunakan bahan-bahan segar pilihan. Kepuasan pelanggan adalah prioritas utama kami.',
     address: settings?.store_address || 'Jakarta, Indonesia',
     phone: settings?.store_phone || '+62 812-3456-7890',
-    email: settings?.store_email || 'dapur@tehyeyen.com', // tidak ada di settings; fallback statis
+    email: settings?.store_email || 'dapur@tehyeyen.com', 
     logo: settings?.logo_url ||
       'https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/rawr.png',
-    // Jam operasional: array [{ day, open, close, closed }]
     hours: Array.isArray(settings?.operational_hours) ? settings.operational_hours : null,
   }
 

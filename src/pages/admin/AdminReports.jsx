@@ -12,12 +12,25 @@ import {
   ChevronDownIcon, ArrowRightOnRectangleIcon, FunnelIcon,
   ArrowDownTrayIcon, XMarkIcon, CalendarIcon, CheckIcon,
   BanknotesIcon, ShoppingCartIcon, CheckCircleIcon,
-  CreditCardIcon, XCircleIcon, UserGroupIcon
+  CreditCardIcon, XCircleIcon, UserGroupIcon, ChartPieIcon,
+  StarIcon, DocumentTextIcon
 } from '@heroicons/react/24/outline'
 import Swal from 'sweetalert2'
 
 const COLORS = ['#f97316', '#22c55e', '#3b82f6', '#ec4899', '#a855f7', '#eab308']
 const formatRp = (val) => `Rp ${Number(val || 0).toLocaleString('id-ID')}`
+
+// Jenis laporan yang bisa dipilih saat export.
+// 'semua' = laporan ringkas 1 halaman berisi semua bagian.
+// Selain itu = laporan khusus 1 halaman untuk bagian tsb saja.
+const REPORT_TYPES = [
+  { key: 'semua', label: 'Laporan Lengkap (Ringkas)', icon: DocumentTextIcon },
+  { key: 'pesanan', label: 'Data Pesanan', icon: ShoppingCartIcon },
+  { key: 'pendapatan', label: 'Grafik Pendapatan', icon: BanknotesIcon },
+  { key: 'status', label: 'Status Pesanan', icon: CheckCircleIcon },
+  { key: 'kategori', label: 'Penjualan per Kategori', icon: ChartPieIcon },
+  { key: 'menu', label: 'Menu Terlaris', icon: StarIcon },
+]
 
 const StatCard = ({ icon, label, value, sub, subUp, iconBg }) => (
   <div className="bg-white rounded-2xl shadow-sm p-4 flex flex-col gap-2 min-w-0">
@@ -50,9 +63,7 @@ export default function AdminReports() {
   const [loading, setLoading] = useState(true)
   const [showExportModal, setShowExportModal] = useState(false)
   const [exportFormat, setExportFormat] = useState('excel')
-  const [exportOptions, setExportOptions] = useState({
-    pesanan: true, pendapatan: true, pelanggan: true
-  })
+  const [exportReportType, setExportReportType] = useState('semua')
 
   const [periode, setPeriode] = useState('thisMonth')
   const [dateFrom, setDateFrom] = useState('')
@@ -211,47 +222,83 @@ export default function AdminReports() {
     }
   }
 
+  const periodLabelFor = (sep) => `${new Date(dateFrom).toLocaleDateString('id-ID')} ${sep} ${new Date(dateTo).toLocaleDateString('id-ID')}`
+
+  // ================= EXCEL =================
+  // exportReportType 'semua' -> semua sheet (perilaku lama).
+  // Selain itu -> hanya 1 sheet sesuai jenis laporan yang dipilih.
   const handleExportExcel = () => {
     const wb = XLSX.utils.book_new()
-    const periodLabel = `${new Date(dateFrom).toLocaleDateString('id-ID')} sampai ${new Date(dateTo).toLocaleDateString('id-ID')}`
+    const periodLabel = periodLabelFor('sampai')
     const exportDate = new Date().toLocaleString('id-ID')
+    const type = exportReportType
 
-    // Ringkasan
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    const ringkasanSheet = () => XLSX.utils.aoa_to_sheet([
       ['LAPORAN PENJUALAN'], [`Periode: ${periodLabel}`], [`Tanggal Export: ${exportDate}`], [],
       ['TOTAL PENDAPATAN', 'TOTAL PESANAN', 'PESANAN SELESAI', 'RATA-RATA NILAI', 'PEMBATALAN', 'PELANGGAN BARU'],
       [formatRp(stats.totalPendapatan), stats.totalPesanan, stats.pesananSelesai, formatRp(stats.avgNilai), stats.pembatalan, stats.pelangganBaru],
-    ]), 'Ringkasan')
+    ])
 
-    // Data Pesanan
-    if (exportOptions.pesanan) {
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
-        ['ID PESANAN', 'PELANGGAN', 'TANGGAL', 'TOTAL', 'STATUS'],
-        ...allOrders.map(o => [
-          '#' + o.id.slice(0,8).toUpperCase(),
-          o.customer_name || '-',
-          new Date(o.created_at).toLocaleDateString('id-ID'),
-          formatRp(o.total),
-          o.status,
-        ])
-      ]), 'Data Pesanan')
-    }
+    const pesananSheet = () => XLSX.utils.aoa_to_sheet([
+      [`Data Pesanan — Periode ${periodLabel}`], [],
+      ['ID PESANAN', 'PELANGGAN', 'TANGGAL', 'TOTAL', 'STATUS'],
+      ...allOrders.map(o => [
+        '#' + o.id.slice(0, 8).toUpperCase(),
+        o.customer_name || '-',
+        new Date(o.created_at).toLocaleDateString('id-ID'),
+        formatRp(o.total),
+        o.status,
+      ])
+    ])
 
-    // Status Pesanan
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    const pendapatanSheet = () => XLSX.utils.aoa_to_sheet([
+      [`Grafik Pendapatan — Periode ${periodLabel}`], [],
+      ['TANGGAL', 'TOTAL PENDAPATAN'],
+      ...revenueChart.map(r => [r.date, formatRp(r.total)]),
+      [],
+      ['TOTAL', formatRp(stats.totalPendapatan)],
+    ])
+
+    const statusSheet = () => XLSX.utils.aoa_to_sheet([
+      [`Ringkasan Status Pesanan — Periode ${periodLabel}`], [],
       ['STATUS', 'JUMLAH', 'PERSENTASE'],
       ...orderStatusSummary.map(s => [s.label, s.count, s.pct + '%']),
       ['TOTAL', allOrders.length, '100%'],
-    ]), 'Ringkasan Status')
+    ])
 
-    // Per Kategori
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    const kategoriSheet = () => XLSX.utils.aoa_to_sheet([
+      [`Penjualan per Kategori — Periode ${periodLabel}`], [],
       ['KATEGORI', 'TOTAL PENJUALAN', 'PERSENTASE'],
       ...categoryChart.map(c => [c.name, formatRp(c.value), c.pct + '%']),
       ['TOTAL', formatRp(categoryChart.reduce((s, c) => s + c.value, 0)), '100%'],
-    ]), 'Penjualan per Kategori')
+    ])
 
-    XLSX.writeFile(wb, `Laporan_${dateFrom}_sampai_${dateTo}.xlsx`)
+    const menuSheet = () => XLSX.utils.aoa_to_sheet([
+      [`Menu Terlaris — Periode ${periodLabel}`], [],
+      ['MENU', 'KATEGORI', 'TERJUAL (PCS)', 'PENDAPATAN'],
+      ...topMenus.map(m => [m.name, m.cat, m.qty, formatRp(m.rev)]),
+    ])
+
+    if (type === 'semua') {
+      XLSX.utils.book_append_sheet(wb, ringkasanSheet(), 'Ringkasan')
+      XLSX.utils.book_append_sheet(wb, pesananSheet(), 'Data Pesanan')
+      XLSX.utils.book_append_sheet(wb, statusSheet(), 'Ringkasan Status')
+      XLSX.utils.book_append_sheet(wb, kategoriSheet(), 'Penjualan per Kategori')
+      XLSX.utils.book_append_sheet(wb, menuSheet(), 'Menu Terlaris')
+    } else if (type === 'pesanan') {
+      XLSX.utils.book_append_sheet(wb, pesananSheet(), 'Data Pesanan')
+    } else if (type === 'pendapatan') {
+      XLSX.utils.book_append_sheet(wb, pendapatanSheet(), 'Grafik Pendapatan')
+    } else if (type === 'status') {
+      XLSX.utils.book_append_sheet(wb, statusSheet(), 'Ringkasan Status')
+    } else if (type === 'kategori') {
+      XLSX.utils.book_append_sheet(wb, kategoriSheet(), 'Penjualan per Kategori')
+    } else if (type === 'menu') {
+      XLSX.utils.book_append_sheet(wb, menuSheet(), 'Menu Terlaris')
+    }
+
+    const typeLabel = REPORT_TYPES.find(r => r.key === type)?.label.replace(/\s+/g, '_') || 'Laporan'
+    XLSX.writeFile(wb, `Laporan_${typeLabel}_${dateFrom}_sampai_${dateTo}.xlsx`)
     setShowExportModal(false)
     Swal.fire({
       icon: 'success', title: 'Export Berhasil', text: 'File Excel berhasil diunduh.',
@@ -260,151 +307,194 @@ export default function AdminReports() {
     })
   }
 
+  // ================= PDF =================
+  // Setiap jenis laporan (kecuali "Data Pesanan" yang datanya bisa panjang)
+  // dirender dalam SATU halaman saja, sesuai jenis yang dipilih di modal.
   const handleExportPDF = async () => {
     const { default: jsPDF } = await import('jspdf')
     const { default: autoTable } = await import('jspdf-autotable')
     const doc = new jsPDF('p', 'mm', 'a4')
-    const periodLabel = `${new Date(dateFrom).toLocaleDateString('id-ID')} - ${new Date(dateTo).toLocaleDateString('id-ID')}`
+    const periodLabel = periodLabelFor('-')
     const exportDate = new Date().toLocaleString('id-ID')
     const pageW = doc.internal.pageSize.getWidth()
+    const type = exportReportType
+    const typeTitle = REPORT_TYPES.find(r => r.key === type)?.label.toUpperCase() || 'LAPORAN'
 
-    const addHeader = (pageNum, total) => {
+    const addHeader = (title) => {
       doc.setFillColor(249, 115, 22)
       doc.rect(0, 0, pageW, 18, 'F')
       doc.setTextColor(255, 255, 255)
       doc.setFontSize(13); doc.setFont('helvetica', 'bold')
       doc.text('Dapur Teh Yeyen', 14, 11)
       doc.setFontSize(10); doc.setFont('helvetica', 'normal')
-      doc.text('LAPORAN PENJUALAN', pageW/2, 8, { align: 'center' })
-      doc.text(`Periode: ${periodLabel}`, pageW/2, 14, { align: 'center' })
-      doc.setTextColor(150,150,150); doc.setFontSize(8)
+      doc.text(title, pageW / 2, 8, { align: 'center' })
+      doc.text(`Periode: ${periodLabel}`, pageW / 2, 14, { align: 'center' })
+      doc.setTextColor(150, 150, 150); doc.setFontSize(8)
       doc.text(`Dicetak: ${exportDate}`, 14, 24)
-      doc.text(`Halaman ${pageNum} dari ${total}`, pageW-14, 24, { align: 'right' })
-      doc.setTextColor(50,50,50)
+      doc.setTextColor(50, 50, 50)
     }
 
-    // PAGE 1
-    addHeader(1, 3)
-    const statData = [
-      { label: 'Total Pendapatan', value: formatRp(stats.totalPendapatan) },
-      { label: 'Total Pesanan', value: String(stats.totalPesanan) },
-      { label: 'Pesanan Selesai', value: String(stats.pesananSelesai) },
-      { label: 'Rata-rata Nilai', value: formatRp(stats.avgNilai) },
-      { label: 'Pembatalan', value: String(stats.pembatalan) },
-      { label: 'Pelanggan Baru', value: String(stats.pelangganBaru) },
-    ]
-    const boxW = (pageW - 28 - 10) / 3
-    statData.forEach((s, i) => {
-      const col = i % 3, row = Math.floor(i / 3)
-      const x = 14 + col * (boxW + 5), y = 30 + row * 20
+    const addFooterNote = (text, startY) => {
+      const y = startY
       doc.setFillColor(255, 247, 237)
-      doc.roundedRect(x, y, boxW, 16, 2, 2, 'F')
+      doc.rect(14, y, pageW - 28, 16, 'F')
       doc.setFontSize(7); doc.setTextColor(150, 100, 50)
-      doc.text(s.label, x+3, y+6)
-      doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(50,50,50)
-      doc.text(s.value, x+3, y+13)
-      doc.setFont('helvetica', 'normal')
-    })
-
-    doc.setFontSize(10); doc.setFont('helvetica', 'bold')
-    doc.text('Grafik Pendapatan', 14, 80); doc.setFont('helvetica', 'normal')
-    doc.setFillColor(255, 247, 237)
-    doc.rect(14, 83, pageW - 28, 55, 'F')
-    if (revenueChart.length > 0) {
-      const chartX = 20, chartY = 88, chartW = pageW - 40, chartH = 44
-      const maxVal = Math.max(...revenueChart.map(d => d.total))
-      doc.setDrawColor(249, 115, 22); doc.setLineWidth(0.5)
-      const pts = revenueChart.map((d, i) => ({
-        x: chartX + (i / Math.max(revenueChart.length - 1, 1)) * chartW,
-        y: chartY + chartH - (d.total / maxVal) * chartH
-      }))
-      for (let i = 0; i < pts.length - 1; i++) doc.line(pts[i].x, pts[i].y, pts[i+1].x, pts[i+1].y)
-      doc.setFillColor(249, 115, 22)
-      pts.forEach(p => doc.circle(p.x, p.y, 0.8, 'F'))
+      doc.text('CATATAN', 18, y + 5); doc.setTextColor(80, 80, 80)
+      doc.text(text, 18, y + 11)
     }
 
-    // PAGE 2
-    doc.addPage(); addHeader(2, 3)
-    doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(50,50,50)
-    doc.text('Data Pesanan', 14, 32); doc.setFont('helvetica', 'normal')
-    autoTable(doc, {
-      startY: 35,
-      head: [['ID Pesanan', 'Pelanggan', 'Tanggal', 'Total', 'Status']],
-      body: allOrders.slice(0, 15).map(o => [
-        '#' + o.id.slice(0,8).toUpperCase(),
-        o.customer_name || '-',
-        new Date(o.created_at).toLocaleDateString('id-ID'),
-        formatRp(o.total), o.status,
-      ]),
-      headStyles: { fillColor: [249,115,22], textColor: 255, fontSize: 8 },
-      bodyStyles: { fontSize: 8 },
-      alternateRowStyles: { fillColor: [255,247,237] },
-      margin: { left: 14, right: 14 },
-    })
+    if (type === 'semua') {
+      // Laporan lengkap ringkas — 1 halaman
+      addHeader('LAPORAN PENJUALAN (RINGKAS)')
 
-    const y2 = doc.lastAutoTable.finalY + 8
-    doc.setFontSize(10); doc.setFont('helvetica', 'bold')
-    doc.text('Ringkasan Status Pesanan', 14, y2); doc.setFont('helvetica', 'normal')
-    autoTable(doc, {
-      startY: y2 + 3,
-      head: [['Status', 'Jumlah', 'Persentase']],
-      body: [
-        ...orderStatusSummary.map(s => [s.label, s.count, s.pct + '%']),
-        ['TOTAL', allOrders.length, '100%'],
-      ],
-      headStyles: { fillColor: [249,115,22], textColor: 255, fontSize: 8 },
-      bodyStyles: { fontSize: 8 },
-      alternateRowStyles: { fillColor: [255,247,237] },
-      margin: { left: 14, right: 14 },
-    })
+      const statData = [
+        { label: 'Total Pendapatan', value: formatRp(stats.totalPendapatan) },
+        { label: 'Total Pesanan', value: String(stats.totalPesanan) },
+        { label: 'Pesanan Selesai', value: String(stats.pesananSelesai) },
+        { label: 'Rata-rata Nilai', value: formatRp(stats.avgNilai) },
+        { label: 'Pembatalan', value: String(stats.pembatalan) },
+        { label: 'Pelanggan Baru', value: String(stats.pelangganBaru) },
+      ]
+      const boxW = (pageW - 28 - 10) / 3
+      statData.forEach((s, i) => {
+        const col = i % 3, row = Math.floor(i / 3)
+        const x = 14 + col * (boxW + 5), y = 30 + row * 16
+        doc.setFillColor(255, 247, 237)
+        doc.roundedRect(x, y, boxW, 13, 2, 2, 'F')
+        doc.setFontSize(7); doc.setTextColor(150, 100, 50)
+        doc.text(s.label, x + 3, y + 5)
+        doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(50, 50, 50)
+        doc.text(s.value, x + 3, y + 11)
+        doc.setFont('helvetica', 'normal')
+      })
 
-    // PAGE 3
-    doc.addPage(); addHeader(3, 3)
-    doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(50,50,50)
-    doc.text('Penjualan per Kategori', 14, 32); doc.setFont('helvetica', 'normal')
-    autoTable(doc, {
-      startY: 35,
-      head: [['Kategori', 'Total Penjualan', 'Persentase']],
-      body: [
-        ...categoryChart.map(c => [c.name, formatRp(c.value), c.pct + '%']),
-        ['TOTAL', formatRp(categoryChart.reduce((s,c) => s+c.value, 0)), '100%'],
-      ],
-      headStyles: { fillColor: [249,115,22], textColor: 255, fontSize: 8 },
-      bodyStyles: { fontSize: 8 },
-      alternateRowStyles: { fillColor: [255,247,237] },
-      margin: { left: 14, right: 14 },
-    })
+      const colGap = 6
+      const colW = (pageW - 28 - colGap) / 2
+      const leftX = 14, rightX = 14 + colW + colGap
+      let topY = 68
 
-    const y3 = doc.lastAutoTable.finalY + 8
-    doc.setFontSize(10); doc.setFont('helvetica', 'bold')
-    doc.text('Menu Terlaris', 14, y3); doc.setFont('helvetica', 'normal')
-    autoTable(doc, {
-      startY: y3 + 3,
-      head: [['Menu', 'Kategori', 'Total Terjual', 'Total Pendapatan']],
-      body: topMenus.map(m => [m.name, m.cat, m.qty + ' pcs', formatRp(m.rev)]),
-      headStyles: { fillColor: [249,115,22], textColor: 255, fontSize: 8 },
-      bodyStyles: { fontSize: 8 },
-      alternateRowStyles: { fillColor: [255,247,237] },
-      margin: { left: 14, right: 14 },
-    })
+      doc.setFontSize(9); doc.setFont('helvetica', 'bold')
+      doc.text('Status Pesanan', leftX, topY); doc.setFont('helvetica', 'normal')
+      autoTable(doc, {
+        startY: topY + 3, margin: { left: leftX }, tableWidth: colW,
+        head: [['Status', 'Jml', '%']],
+        body: orderStatusSummary.map(s => [s.label, s.count, s.pct + '%']),
+        headStyles: { fillColor: [249, 115, 22], textColor: 255, fontSize: 7 },
+        bodyStyles: { fontSize: 7 }, alternateRowStyles: { fillColor: [255, 247, 237] },
+      })
 
-    const y4 = doc.lastAutoTable.finalY + 12
-    doc.setFillColor(255, 247, 237)
-    doc.rect(14, y4, pageW - 28, 28, 'F')
-    doc.setFontSize(8); doc.setTextColor(150, 100, 50)
-    doc.text('CATATAN', 18, y4 + 6); doc.setTextColor(80, 80, 80)
-    doc.text('Laporan ini dibuat secara otomatis oleh sistem Dapur Teh Yeyen.', 18, y4 + 12)
-    doc.text('Data yang ditampilkan berdasarkan pesanan yang berstatus Selesai.', 18, y4 + 18)
-    const nameX = pageW - 50
-    doc.text('Hormat kami,', nameX, y4+8, { align: 'center' })
-    doc.setFont('helvetica', 'italic')
-    doc.text('~ ~ ~', nameX, y4+18, { align: 'center' })
-    doc.setFont('helvetica', 'bold')
-    doc.text('Admin', nameX, y4+25, { align: 'center' })
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(7)
-    doc.text('Super Admin', nameX, y4+29, { align: 'center' })
+      doc.setFontSize(9); doc.setFont('helvetica', 'bold')
+      doc.text('Penjualan per Kategori', rightX, topY); doc.setFont('helvetica', 'normal')
+      autoTable(doc, {
+        startY: topY + 3, margin: { left: rightX }, tableWidth: colW,
+        head: [['Kategori', 'Total', '%']],
+        body: categoryChart.map(c => [c.name, formatRp(c.value), c.pct + '%']),
+        headStyles: { fillColor: [249, 115, 22], textColor: 255, fontSize: 7 },
+        bodyStyles: { fontSize: 7 }, alternateRowStyles: { fillColor: [255, 247, 237] },
+      })
 
-    doc.save(`Laporan_${dateFrom}_sampai_${dateTo}.pdf`)
+      const midY = Math.max(doc.lastAutoTable.finalY, 100) + 8
+      doc.setFontSize(9); doc.setFont('helvetica', 'bold')
+      doc.text('Menu Terlaris', leftX, midY); doc.setFont('helvetica', 'normal')
+      autoTable(doc, {
+        startY: midY + 3, margin: { left: 14, right: 14 },
+        head: [['Menu', 'Kategori', 'Terjual', 'Pendapatan']],
+        body: topMenus.map(m => [m.name, m.cat, m.qty + ' pcs', formatRp(m.rev)]),
+        headStyles: { fillColor: [249, 115, 22], textColor: 255, fontSize: 7 },
+        bodyStyles: { fontSize: 7 }, alternateRowStyles: { fillColor: [255, 247, 237] },
+      })
+
+      addFooterNote('Laporan ringkas dibuat otomatis. Data berdasarkan pesanan berstatus Selesai.', doc.lastAutoTable.finalY + 6)
+
+    } else if (type === 'pendapatan') {
+      addHeader('LAPORAN GRAFIK PENDAPATAN')
+      doc.setFontSize(10); doc.setFont('helvetica', 'bold')
+      doc.text(`Total Pendapatan: ${formatRp(stats.totalPendapatan)}`, 14, 30)
+      doc.setFont('helvetica', 'normal')
+
+      if (revenueChart.length > 0) {
+        const chartX = 20, chartY = 38, chartW = pageW - 40, chartH = 55
+        doc.setFillColor(255, 247, 237)
+        doc.rect(14, 34, pageW - 28, chartH + 8, 'F')
+        const maxVal = Math.max(...revenueChart.map(d => d.total))
+        doc.setDrawColor(249, 115, 22); doc.setLineWidth(0.5)
+        const pts = revenueChart.map((d, i) => ({
+          x: chartX + (i / Math.max(revenueChart.length - 1, 1)) * chartW,
+          y: chartY + chartH - (d.total / maxVal) * chartH
+        }))
+        for (let i = 0; i < pts.length - 1; i++) doc.line(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y)
+        doc.setFillColor(249, 115, 22)
+        pts.forEach(p => doc.circle(p.x, p.y, 0.8, 'F'))
+      }
+
+      autoTable(doc, {
+        startY: 100, margin: { left: 14, right: 14 },
+        head: [['Tanggal', 'Total Pendapatan']],
+        body: revenueChart.map(r => [r.date, formatRp(r.total)]),
+        headStyles: { fillColor: [249, 115, 22], textColor: 255, fontSize: 8 },
+        bodyStyles: { fontSize: 8 }, alternateRowStyles: { fillColor: [255, 247, 237] },
+      })
+      addFooterNote('Grafik pendapatan dihitung dari pesanan berstatus Selesai.', doc.lastAutoTable.finalY + 6)
+
+    } else if (type === 'status') {
+      addHeader('LAPORAN STATUS PESANAN')
+      autoTable(doc, {
+        startY: 32, margin: { left: 14, right: 14 },
+        head: [['Status', 'Jumlah', 'Persentase']],
+        body: [
+          ...orderStatusSummary.map(s => [s.label, s.count, s.pct + '%']),
+          ['TOTAL', allOrders.length, '100%'],
+        ],
+        headStyles: { fillColor: [249, 115, 22], textColor: 255, fontSize: 9 },
+        bodyStyles: { fontSize: 9 }, alternateRowStyles: { fillColor: [255, 247, 237] },
+      })
+      addFooterNote('Ringkasan berdasarkan seluruh pesanan pada periode yang dipilih.', doc.lastAutoTable.finalY + 8)
+
+    } else if (type === 'kategori') {
+      addHeader('LAPORAN PENJUALAN PER KATEGORI')
+      autoTable(doc, {
+        startY: 32, margin: { left: 14, right: 14 },
+        head: [['Kategori', 'Total Penjualan', 'Persentase']],
+        body: [
+          ...categoryChart.map(c => [c.name, formatRp(c.value), c.pct + '%']),
+          ['TOTAL', formatRp(categoryChart.reduce((s, c) => s + c.value, 0)), '100%'],
+        ],
+        headStyles: { fillColor: [249, 115, 22], textColor: 255, fontSize: 9 },
+        bodyStyles: { fontSize: 9 }, alternateRowStyles: { fillColor: [255, 247, 237] },
+      })
+      addFooterNote('Dihitung dari nilai order_items pada pesanan berstatus Selesai.', doc.lastAutoTable.finalY + 8)
+
+    } else if (type === 'menu') {
+      addHeader('LAPORAN MENU TERLARIS')
+      autoTable(doc, {
+        startY: 32, margin: { left: 14, right: 14 },
+        head: [['Menu', 'Kategori', 'Total Terjual', 'Total Pendapatan']],
+        body: topMenus.map(m => [m.name, m.cat, m.qty + ' pcs', formatRp(m.rev)]),
+        headStyles: { fillColor: [249, 115, 22], textColor: 255, fontSize: 9 },
+        bodyStyles: { fontSize: 9 }, alternateRowStyles: { fillColor: [255, 247, 237] },
+      })
+      addFooterNote('Top 5 menu berdasarkan jumlah terjual pada pesanan berstatus Selesai.', doc.lastAutoTable.finalY + 8)
+
+    } else if (type === 'pesanan') {
+      // Data mentah, bisa lebih dari 1 halaman kalau datanya banyak — itu wajar.
+      addHeader('LAPORAN DATA PESANAN')
+      autoTable(doc, {
+        startY: 32, margin: { left: 14, right: 14 },
+        head: [['ID Pesanan', 'Pelanggan', 'Tanggal', 'Total', 'Status']],
+        body: allOrders.map(o => [
+          '#' + o.id.slice(0, 8).toUpperCase(),
+          o.customer_name || '-',
+          new Date(o.created_at).toLocaleDateString('id-ID'),
+          formatRp(o.total), o.status,
+        ]),
+        headStyles: { fillColor: [249, 115, 22], textColor: 255, fontSize: 8 },
+        bodyStyles: { fontSize: 8 }, alternateRowStyles: { fillColor: [255, 247, 237] },
+        didDrawPage: () => addHeader('LAPORAN DATA PESANAN'),
+      })
+    }
+
+    const typeLabel = REPORT_TYPES.find(r => r.key === type)?.label.replace(/\s+/g, '_') || 'Laporan'
+    doc.save(`Laporan_${typeLabel}_${dateFrom}_sampai_${dateTo}.pdf`)
     setShowExportModal(false)
     Swal.fire({
       icon: 'success', title: 'Export Berhasil', text: 'File PDF berhasil diunduh.',
@@ -592,7 +682,7 @@ export default function AdminReports() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                     <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false}
-                      tickFormatter={v => `Rp ${(v/1000).toFixed(0)}rb`} />
+                      tickFormatter={v => `Rp ${(v / 1000).toFixed(0)}rb`} />
                     <Tooltip content={<CustomTooltip />} />
                     <Line type="monotone" dataKey="total" stroke="#f97316" strokeWidth={2.5}
                       dot={{ fill: '#f97316', r: 3 }} activeDot={{ r: 5 }} />
@@ -749,7 +839,7 @@ export default function AdminReports() {
       {showExportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowExportModal(false)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h2 className="font-bold text-gray-900 text-lg">Export Laporan</h2>
               <button onClick={() => setShowExportModal(false)}
@@ -763,15 +853,15 @@ export default function AdminReports() {
               <div className="flex gap-3">
                 {[
                   { key: 'excel', label: 'Excel (.xlsx)', icon: '📊' },
-                  { key: 'pdf',   label: 'PDF (.pdf)',   icon: '📄' },
+                  { key: 'pdf', label: 'PDF (.pdf)', icon: '📄' },
                 ].map(fmt => (
                   <button key={fmt.key} onClick={() => setExportFormat(fmt.key)}
                     className={`flex-1 flex items-center gap-3 p-4 rounded-xl border-2 transition ${
-                      exportFormat===fmt.key ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-orange-200'
+                      exportFormat === fmt.key ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-orange-200'
                     }`}>
                     <span className="text-2xl">{fmt.icon}</span>
                     <p className="text-sm font-semibold text-gray-800">{fmt.label}</p>
-                    {exportFormat===fmt.key && (
+                    {exportFormat === fmt.key && (
                       <div className="ml-auto w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
                         <CheckIcon className="w-3 h-3 text-white" />
                       </div>
@@ -799,26 +889,31 @@ export default function AdminReports() {
             </div>
 
             <div className="mb-6">
-              <label className="text-sm font-semibold text-gray-700 block mb-3">Data yang diexport</label>
-              <div className="space-y-2.5">
-                {[
-                  { key: 'pesanan', label: 'Data Pesanan', icon: <ShoppingCartIcon className="w-4 h-4 text-blue-500" /> },
-                  { key: 'pendapatan', label: 'Grafik Pendapatan', icon: <BanknotesIcon className="w-4 h-4 text-orange-500" /> },
-                  { key: 'pelanggan', label: 'Ringkasan Status', icon: <CheckCircleIcon className="w-4 h-4 text-green-500" /> },
-                ].map(opt => (
-                  <label key={opt.key} className="flex items-center gap-3 cursor-pointer">
-                    <div onClick={() => setExportOptions(prev => ({ ...prev, [opt.key]: !prev[opt.key] }))}
-                      className={`w-5 h-5 rounded flex items-center justify-center border-2 transition cursor-pointer ${
-                        exportOptions[opt.key] ? 'bg-orange-500 border-orange-500' : 'border-gray-300'
+              <label className="text-sm font-semibold text-gray-700 block mb-1">Jenis Laporan</label>
+              <p className="text-xs text-gray-400 mb-3">
+                {exportReportType === 'semua'
+                  ? 'Semua bagian dirangkum jadi 1 halaman.'
+                  : 'Hanya bagian ini yang akan muncul di file, 1 halaman.'}
+              </p>
+              <div className="space-y-2">
+                {REPORT_TYPES.map(rt => {
+                  const Icon = rt.icon
+                  const active = exportReportType === rt.key
+                  return (
+                    <button key={rt.key} type="button" onClick={() => setExportReportType(rt.key)}
+                      className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition text-left ${
+                        active ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-orange-200'
                       }`}>
-                      {exportOptions[opt.key] && <CheckIcon className="w-3 h-3 text-white" />}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {opt.icon}
-                      <span className="text-sm text-gray-700">{opt.label}</span>
-                    </div>
-                  </label>
-                ))}
+                      <Icon className={`w-5 h-5 flex-shrink-0 ${active ? 'text-orange-500' : 'text-gray-400'}`} />
+                      <span className={`text-sm flex-1 ${active ? 'font-semibold text-gray-800' : 'text-gray-600'}`}>{rt.label}</span>
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                        active ? 'border-orange-500' : 'border-gray-300'
+                      }`}>
+                        {active && <div className="w-2 h-2 bg-orange-500 rounded-full" />}
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
@@ -827,10 +922,10 @@ export default function AdminReports() {
                 className="flex-1 border border-gray-200 text-gray-600 py-3 rounded-xl font-semibold text-sm hover:bg-gray-50 transition">
                 Batal
               </button>
-              <button onClick={exportFormat==='excel' ? handleExportExcel : handleExportPDF}
+              <button onClick={exportFormat === 'excel' ? handleExportExcel : handleExportPDF}
                 className="flex-1 bg-orange-500 text-white py-3 rounded-xl font-bold text-sm hover:bg-orange-600 transition flex items-center justify-center gap-2">
                 <ArrowDownTrayIcon className="w-4 h-4" />
-                Export {exportFormat==='excel' ? 'Excel' : 'PDF'}
+                Export {exportFormat === 'excel' ? 'Excel' : 'PDF'}
               </button>
             </div>
           </div>

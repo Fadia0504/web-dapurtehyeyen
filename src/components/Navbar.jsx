@@ -4,7 +4,8 @@ import { useCartStore } from '../store/cartStore'
 import { useAuthStore } from '../store/authStore'
 import {
   MagnifyingGlassIcon, ShoppingCartIcon,
-  ChevronDownIcon, Squares2X2Icon, ArrowRightOnRectangleIcon
+  ChevronDownIcon, Squares2X2Icon, ArrowRightOnRectangleIcon,
+  Bars3Icon, XMarkIcon
 } from '@heroicons/react/24/outline'
 import Swal from 'sweetalert2'
 
@@ -15,6 +16,7 @@ export default function Navbar() {
   const navigate = useNavigate()
   const { user, profile, logout } = useAuthStore()
   const [dropdown, setDropdown] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
   const dropRef = useRef()
 
   useEffect(() => {
@@ -25,8 +27,12 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  // Tutup menu mobile setiap kali pindah halaman
+  useEffect(() => { setMobileOpen(false) }, [pathname])
+
   const handleAboutClick = (e) => {
     e.preventDefault()
+    setMobileOpen(false)
     if (pathname !== '/') {
       navigate('/')
       setTimeout(() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' }), 300)
@@ -45,14 +51,12 @@ export default function Navbar() {
       cancelButtonColor: '#e5e7eb',
       confirmButtonText: 'Ya, Keluar',
       cancelButtonText: 'Batal',
-      customClass: {
-        popup: 'rounded-2xl',
-        cancelButton: '!text-gray-700',
-      },
+      customClass: { popup: 'rounded-2xl', cancelButton: '!text-gray-700' },
     })
     if (!result.isConfirmed) return
     await logout()
     setDropdown(false)
+    setMobileOpen(false)
     navigate('/')
   }
 
@@ -67,86 +71,144 @@ export default function Navbar() {
   const name = profile?.full_name || user?.email?.split('@')[0] || 'Pengguna'
 
   return (
-    <nav className="bg-white px-8 py-4 flex justify-between items-center sticky top-0 z-50 shadow-sm">
-      <Link to="/" className="flex items-center gap-2">
-        <img
-          src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/rawr.png"
-          alt="Logo" className="h-10 w-auto object-contain"
-        />
-        <span className="text-xl font-black text-orange-500" style={{ fontFamily: 'Playfair Display, serif' }}>
-          Dapur Teh Yeyen
-        </span>
-      </Link>
-
-      <div className="flex gap-8 items-center">
-        {links.map(l => (
-          <Link key={l.label} to={l.to} onClick={l.onClick}
-            className={`text-sm font-medium transition ${
-              pathname === l.to
-                ? 'text-orange-500 border-b-2 border-orange-500 pb-1'
-                : 'text-gray-600 hover:text-orange-500'
-            }`}>
-            {l.label}
-          </Link>
-        ))}
-      </div>
-
-      <div className="flex items-center gap-4">
-        <button className="text-gray-600 hover:text-orange-500 transition">
-          <MagnifyingGlassIcon className="w-6 h-6" />
-        </button>
-
-        <Link to="/cart" className="relative text-gray-600 hover:text-orange-500 transition">
-          <ShoppingCartIcon className="w-6 h-6" />
-          {totalItems > 0 && (
-            <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
-              {totalItems}
-            </span>
-          )}
+    <nav className="bg-white sticky top-0 z-50 shadow-sm">
+      <div className="px-4 md:px-8 py-4 flex justify-between items-center">
+        {/* Logo */}
+        <Link to="/" className="flex items-center gap-2 flex-shrink-0">
+          <img
+            src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/rawr.png"
+            alt="Logo" className="h-9 md:h-10 w-auto object-contain"
+          />
+          <span className="text-lg md:text-xl font-black text-orange-500" style={{ fontFamily: 'Playfair Display, serif' }}>
+            Dapur Teh Yeyen
+          </span>
         </Link>
 
-        {user ? (
-          <div className="relative" ref={dropRef}>
-            <button onClick={() => setDropdown(!dropdown)}
-              className="flex items-center gap-2 hover:bg-gray-50 px-3 py-2 rounded-xl transition">
-              <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center font-bold text-orange-500 text-sm overflow-hidden">
-                {profile?.avatar_url
-                  ? <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-                  : name[0].toUpperCase()
-                }
-              </div>
-              <span className="text-sm font-medium text-gray-700">Halo, {name.split(' ')[0]}</span>
-              <ChevronDownIcon className={`w-4 h-4 text-gray-400 transition-transform ${dropdown ? 'rotate-180' : ''}`} />
-            </button>
+        {/* Menu tengah — desktop */}
+        <div className="hidden md:flex gap-8 items-center">
+          {links.map(l => (
+            <Link key={l.label} to={l.to} onClick={l.onClick}
+              className={`text-sm font-medium transition ${
+                pathname === l.to
+                  ? 'text-orange-500 border-b-2 border-orange-500 pb-1'
+                  : 'text-gray-600 hover:text-orange-500'
+              }`}>
+              {l.label}
+            </Link>
+          ))}
+        </div>
 
-            {dropdown && (
-              <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-50">
-                  <p className="text-sm font-semibold text-gray-800 truncate">{name}</p>
-                  <p className="text-xs text-gray-400 truncate">{user?.email}</p>
-                </div>
-                <Link
-                  to={profile?.role === 'admin' ? '/admin' : '/dashboard'}
-                  onClick={() => setDropdown(false)}
-                  className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-500 transition">
-                  <Squares2X2Icon className="w-5 h-5" />
-                  Dashboard
-                </Link>
-                <button onClick={handleLogout}
-                  className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-red-50 hover:text-red-500 transition w-full text-left border-t border-gray-50">
-                  <ArrowRightOnRectangleIcon className="w-5 h-5" />
-                  Logout
+        {/* Aksi kanan */}
+        <div className="flex items-center gap-2 md:gap-4">
+          <button className="hidden md:inline-flex text-gray-600 hover:text-orange-500 transition">
+            <MagnifyingGlassIcon className="w-6 h-6" />
+          </button>
+
+          {/* Keranjang — selalu tampil */}
+          <Link to="/cart" className="relative text-gray-600 hover:text-orange-500 transition">
+            <ShoppingCartIcon className="w-6 h-6" />
+            {totalItems > 0 && (
+              <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
+                {totalItems}
+              </span>
+            )}
+          </Link>
+
+          {/* Akun — desktop */}
+          <div className="hidden md:block">
+            {user ? (
+              <div className="relative" ref={dropRef}>
+                <button onClick={() => setDropdown(!dropdown)}
+                  className="flex items-center gap-2 hover:bg-gray-50 px-3 py-2 rounded-xl transition">
+                  <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center font-bold text-orange-500 text-sm overflow-hidden">
+                    {profile?.avatar_url
+                      ? <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                      : name[0].toUpperCase()}
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">Halo, {name.split(' ')[0]}</span>
+                  <ChevronDownIcon className={`w-4 h-4 text-gray-400 transition-transform ${dropdown ? 'rotate-180' : ''}`} />
                 </button>
+
+                {dropdown && (
+                  <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-50">
+                      <p className="text-sm font-semibold text-gray-800 truncate">{name}</p>
+                      <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+                    </div>
+                    <Link to={profile?.role === 'admin' ? '/admin' : '/dashboard'} onClick={() => setDropdown(false)}
+                      className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-500 transition">
+                      <Squares2X2Icon className="w-5 h-5" /> Dashboard
+                    </Link>
+                    <button onClick={handleLogout}
+                      className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-red-50 hover:text-red-500 transition w-full text-left border-t border-gray-50">
+                      <ArrowRightOnRectangleIcon className="w-5 h-5" /> Logout
+                    </button>
+                  </div>
+                )}
               </div>
+            ) : (
+              <Link to="/login"
+                className="bg-orange-500 text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-orange-600 transition">
+                Login
+              </Link>
             )}
           </div>
-        ) : (
-          <Link to="/login"
-            className="bg-orange-500 text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-orange-600 transition">
-            Login
-          </Link>
-        )}
+
+          {/* Tombol hamburger — mobile */}
+          <button onClick={() => setMobileOpen(!mobileOpen)}
+            className="md:hidden text-gray-700 hover:text-orange-500 transition p-1" aria-label="Menu">
+            {mobileOpen ? <XMarkIcon className="w-7 h-7" /> : <Bars3Icon className="w-7 h-7" />}
+          </button>
+        </div>
       </div>
+
+      {/* Panel menu — mobile */}
+      {mobileOpen && (
+        <div className="md:hidden border-t border-gray-100 bg-white shadow-sm">
+          <div className="px-4 py-3 space-y-1">
+            {links.map(l => (
+              <Link key={l.label} to={l.to} onClick={l.onClick || (() => setMobileOpen(false))}
+                className={`block px-3 py-2.5 rounded-xl text-sm font-medium transition ${
+                  pathname === l.to ? 'bg-orange-50 text-orange-500' : 'text-gray-600 hover:bg-gray-50'
+                }`}>
+                {l.label}
+              </Link>
+            ))}
+          </div>
+
+          {/* Akun — mobile */}
+          <div className="px-4 py-3 border-t border-gray-100">
+            {user ? (
+              <>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-9 h-9 bg-orange-100 rounded-full flex items-center justify-center font-bold text-orange-500 text-sm overflow-hidden">
+                    {profile?.avatar_url
+                      ? <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                      : name[0].toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 truncate">{name}</p>
+                    <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+                  </div>
+                </div>
+                <Link to={profile?.role === 'admin' ? '/admin' : '/dashboard'} onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-500 transition">
+                  <Squares2X2Icon className="w-5 h-5" /> Dashboard
+                </Link>
+                <button onClick={handleLogout}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-red-50 hover:text-red-500 transition w-full text-left">
+                  <ArrowRightOnRectangleIcon className="w-5 h-5" /> Logout
+                </button>
+              </>
+            ) : (
+              <Link to="/login" onClick={() => setMobileOpen(false)}
+                className="block text-center bg-orange-500 text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-orange-600 transition">
+                Login
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
     </nav>
   )
 }

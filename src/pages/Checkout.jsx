@@ -29,8 +29,9 @@ export default function Checkout() {
   const shippingFee = ongkir?.reachable ? ongkir.fee : 0
   const grandTotal = subtotal + shippingFee
 
-  // Tanggal pengiriman minimal H+n sesuai setting (default H+1)
-  const minDays = settings?.min_delivery_days_online ?? 1
+  // Tanggal pengiriman minimal H+1 (tidak boleh hari yang sama).
+  // Kalau ada pengaturan min_delivery_days_online di value JSON dan nilainya > 1, dipakai yang lebih besar.
+  const minDays = Math.max(1, Number(settings?.value?.min_delivery_days_online) || 1)
   const minDate = (() => {
     const d = new Date()
     d.setDate(d.getDate() + minDays)
@@ -48,8 +49,8 @@ export default function Checkout() {
   }, [])
 
   useEffect(() => {
-    supabase.from('app_settings').select('value').eq('id', 1).maybeSingle()
-      .then(({ data }) => setSettings(data?.value || null))
+    supabase.from('app_settings').select('*').eq('id', 1).maybeSingle()
+      .then(({ data }) => setSettings(data || null))
   }, [])
 
   useEffect(() => {
@@ -85,6 +86,9 @@ export default function Checkout() {
     }
     if (!deliveryDate) {
       return warn('Tanggal Pengiriman Belum Dipilih', 'Harap pilih tanggal kapan pesanan ini ingin dikirim.')
+    }
+    if (deliveryDate < minDate) {
+      return warn('Tanggal Tidak Valid', 'Pesanan tidak bisa dikirim di hari yang sama. Pilih tanggal minimal H+1 (besok).')
     }
 
     setLoading(true)
@@ -228,7 +232,7 @@ export default function Checkout() {
                     </p>
                   ) : (
                     <p className="text-xs text-gray-400 mt-1.5">
-                      Pesanan diproses minimal H-1 sebelum tanggal pengiriman.
+                      Pengiriman paling cepat besok (H+1). Pesanan tidak bisa untuk hari yang sama.
                     </p>
                   )}
                 </div>
