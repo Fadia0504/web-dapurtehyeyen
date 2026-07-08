@@ -5,7 +5,7 @@ import { useCartStore } from '../store/cartStore'
 import { useAuthStore } from '../store/authStore'
 import { ChevronLeftIcon, ShieldCheckIcon, CalendarDaysIcon } from '@heroicons/react/24/outline'
 import Swal from 'sweetalert2'
-import LocationPicker from '../components/LocationPicker'
+import LocationPicker from '../components/Locationpicker'
 import { buildConfig, hitungOngkir, formatKm } from '../lib/ongkir'
 
 export default function Checkout() {
