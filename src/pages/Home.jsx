@@ -79,61 +79,63 @@ export default function Home() {
     <div className="font-sans">
 
       {/* HERO */}
-      <section className="relative overflow-hidden bg-white min-h-[90vh] flex items-center">
-        <div className="absolute top-0 right-0 w-[55%] h-full bg-orange-400 rounded-bl-[120px] z-0" />
-        <div className="relative z-10 max-w-6xl mx-auto px-8 w-full grid grid-cols-2 gap-8 items-center">
-          <div>
-            <p className="text-orange-500 font-semibold text-sm mb-3 tracking-widest uppercase">— Restaurant</p>
-            <h1 className="text-6xl font-black leading-tight text-gray-900 mb-6" style={{ fontFamily: 'Playfair Display, serif' }}>
-              We Serve<br />
-              <span className="text-orange-500">Delicious</span> Food
-            </h1>
-            <p className="text-gray-500 text-lg mb-8 max-w-md leading-relaxed">
-              {store.description}
-            </p>
-            <Link to="/menu"
-              className="inline-flex items-center gap-2 bg-orange-500 text-white px-8 py-4 rounded-full font-semibold text-lg hover:bg-orange-600 transition-all hover:scale-105 shadow-lg shadow-orange-200">
-              <ShoppingBagIcon className="w-5 h-5" />
-              Pesan Sekarang
-            </Link>
-          </div>
+      <section className="relative overflow-hidden bg-white min-h-screen sm:min-h-[90vh] flex items-center py-16 sm:py-0">
+        <div className="absolute top-0 right-0 w-full h-[45%] sm:w-[55%] sm:h-full bg-orange-400 rounded-bl-[60px] sm:rounded-bl-[120px] z-0" />
+        <div className="relative z-10 max-w-6xl mx-auto px-6 sm:px-8 w-full grid grid-cols-1 sm:grid-cols-2 gap-8 sm:gap-8 items-center">
 
-          <div className="relative flex justify-center items-center h-[480px]">
-            <div className="w-80 h-80 bg-white rounded-full shadow-2xl overflow-hidden border-4 border-white">
+          <div className="relative flex justify-center items-center h-[280px] xs:h-[320px] sm:h-[420px] md:h-[480px] order-1 sm:order-2">
+            <div className="w-52 h-52 xs:w-64 xs:h-64 sm:w-72 sm:h-72 md:w-80 md:h-80 bg-white rounded-full shadow-2xl overflow-hidden border-4 border-white">
               <img
                 src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/nasi-goreng.jpeg"
                 alt="Featured Food" className="w-full h-full object-cover"
                 onError={e => { e.target.style.display='none'; e.target.parentElement.innerHTML='<div class="w-full h-full bg-orange-50 flex items-center justify-center text-8xl">🍛</div>' }}
               />
             </div>
-            <div className="absolute top-6 right-10 w-20 h-20 bg-white rounded-full shadow-lg overflow-hidden border-2 border-white">
+            <div className="absolute top-2 right-4 sm:top-6 sm:right-10 w-14 h-14 sm:w-20 sm:h-20 bg-white rounded-full shadow-lg overflow-hidden border-2 border-white">
               <img src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/nasi-kebuli.jpeg"
                 alt="Food 2" className="w-full h-full object-cover"
                 onError={e => { e.target.style.display='none'; e.target.parentElement.innerHTML='<div class="w-full h-full bg-orange-50 flex items-center justify-center text-2xl">🥗</div>' }}
               />
             </div>
-            <div className="absolute bottom-10 right-6 w-16 h-16 bg-white rounded-full shadow-lg overflow-hidden border-2 border-white">
+            <div className="absolute bottom-6 right-2 sm:bottom-10 sm:right-6 w-12 h-12 sm:w-16 sm:h-16 bg-white rounded-full shadow-lg overflow-hidden border-2 border-white">
               <img src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/klepon.jpeg"
                 alt="Food 3" className="w-full h-full object-cover"
                 onError={e => { e.target.style.display='none'; e.target.parentElement.innerHTML='<div class="w-full h-full bg-orange-50 flex items-center justify-center text-2xl">🍜</div>' }}
               />
             </div>
-            <div className="absolute bottom-16 left-6 w-16 h-16 bg-white rounded-full shadow-lg overflow-hidden border-2 border-white">
+            <div className="absolute bottom-10 left-2 sm:bottom-16 sm:left-6 w-12 h-12 sm:w-16 sm:h-16 bg-white rounded-full shadow-lg overflow-hidden border-2 border-white">
               <img src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/nasi-goreng.jpeg"
                 alt="Food 4" className="w-full h-full object-cover"
                 onError={e => { e.target.style.display='none'; e.target.parentElement.innerHTML='<div class="w-full h-full bg-orange-50 flex items-center justify-center text-2xl">🍲</div>' }}
               />
             </div>
           </div>
+
+          <div className="text-center sm:text-left order-2 sm:order-1">
+            <p className="text-orange-500 font-semibold text-sm mb-3 tracking-widest uppercase">— Restaurant</p>
+            <h1 className="text-4xl xs:text-5xl sm:text-5xl md:text-6xl font-black leading-tight text-gray-900 mb-6" style={{ fontFamily: 'Playfair Display, serif' }}>
+              We Serve<br />
+              <span className="text-orange-500">Delicious</span> Food
+            </h1>
+            <p className="text-gray-500 text-base sm:text-lg mb-8 max-w-md mx-auto sm:mx-0 leading-relaxed">
+              {store.description}
+            </p>
+            <Link to="/menu"
+              className="inline-flex items-center gap-2 bg-orange-500 text-white px-6 sm:px-8 py-3.5 sm:py-4 rounded-full font-semibold text-base sm:text-lg hover:bg-orange-600 transition-all hover:scale-105 shadow-lg shadow-orange-200">
+              <ShoppingBagIcon className="w-5 h-5" />
+              Pesan Sekarang
+            </Link>
+          </div>
+
         </div>
       </section>
 
       {/* ABOUT */}
-      <section id="about" className="py-24 bg-white">
-        <div className="max-w-6xl mx-auto px-8 grid grid-cols-2 gap-16 items-center">
-          <div className="relative">
-            <div className="w-64 h-64 bg-orange-400 rounded-full absolute -left-6 -top-6 z-0" />
-            <div className="relative z-10 w-72 h-72 rounded-3xl shadow-xl overflow-hidden ml-8 border-4 border-white">
+      <section id="about" className="py-16 sm:py-24 bg-white">
+        <div className="max-w-6xl mx-auto px-6 sm:px-8 grid grid-cols-1 sm:grid-cols-2 gap-10 sm:gap-16 items-center">
+          <div className="relative flex justify-center sm:block">
+            <div className="w-52 h-52 sm:w-64 sm:h-64 bg-orange-400 rounded-full absolute -top-6 z-0 left-1/2 -translate-x-[calc(50%+24px)] sm:left-[-24px] sm:translate-x-0" />
+            <div className="relative z-10 w-60 h-60 sm:w-72 sm:h-72 rounded-3xl shadow-xl overflow-hidden sm:ml-8 border-4 border-white">
               <img
                 src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/nasi-kebuli.jpeg"
                 alt="About Us" className="w-full h-full object-cover"
@@ -141,15 +143,15 @@ export default function Home() {
               />
             </div>
           </div>
-          <div>
-            <h2 className="text-4xl font-black text-gray-900 mb-4" style={{ fontFamily: 'Playfair Display, serif' }}>
+          <div className="text-center sm:text-left">
+            <h2 className="text-3xl sm:text-4xl font-black text-gray-900 mb-4" style={{ fontFamily: 'Playfair Display, serif' }}>
               About <span className="text-orange-500">Us</span>
             </h2>
             <p className="text-gray-500 leading-relaxed mb-6">
               {store.aboutText}
             </p>
             <Link to="/menu"
-              className="border-2 border-orange-500 text-orange-500 px-6 py-3 rounded-full font-semibold hover:bg-orange-500 hover:text-white transition">
+              className="inline-block border-2 border-orange-500 text-orange-500 px-6 py-3 rounded-full font-semibold hover:bg-orange-500 hover:text-white transition">
               Lihat Menu
             </Link>
           </div>
@@ -157,22 +159,22 @@ export default function Home() {
       </section>
 
       {/* POPULAR FOODS */}
-      <section className="py-24 bg-gray-50">
-        <div className="max-w-6xl mx-auto px-8">
-          <h2 className="text-4xl font-black text-center text-gray-900 mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
+      <section className="py-16 sm:py-24 bg-gray-50">
+        <div className="max-w-6xl mx-auto px-6 sm:px-8">
+          <h2 className="text-3xl sm:text-4xl font-black text-center text-gray-900 mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
             Most Popular <span className="text-orange-500">Food</span>
           </h2>
-          <p className="text-center text-gray-400 mb-12">Menu favorit pelanggan setia kami</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          <p className="text-center text-gray-400 mb-10 sm:mb-12">Menu favorit pelanggan setia kami</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {popularFoods.length > 0 ? popularFoods.map(food => (
               <FoodCard key={food.id} food={food} />
             )) : (
-              <p className="col-span-3 text-center text-gray-400">Menu sedang dimuat...</p>
+              <p className="col-span-1 sm:col-span-2 lg:col-span-3 text-center text-gray-400">Menu sedang dimuat...</p>
             )}
           </div>
           <div className="text-center mt-10">
             <Link to="/menu"
-              className="bg-orange-500 text-white px-8 py-3 rounded-full font-semibold hover:bg-orange-600 transition">
+              className="inline-block bg-orange-500 text-white px-8 py-3 rounded-full font-semibold hover:bg-orange-600 transition">
               Lihat Semua Menu
             </Link>
           </div>
@@ -180,18 +182,18 @@ export default function Home() {
       </section>
 
       {/* WHY CHOOSE US */}
-      <section className="py-24 bg-white">
-        <div className="max-w-6xl mx-auto px-8">
-          <h2 className="text-4xl font-black text-center text-gray-900 mb-12" style={{ fontFamily: 'Playfair Display, serif' }}>
+      <section className="py-16 sm:py-24 bg-white">
+        <div className="max-w-6xl mx-auto px-6 sm:px-8">
+          <h2 className="text-3xl sm:text-4xl font-black text-center text-gray-900 mb-10 sm:mb-12" style={{ fontFamily: 'Playfair Display, serif' }}>
             Why Choose Our <span className="text-orange-500">Food</span>
           </h2>
-          <div className="grid grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
             {[
               { icon: <StarIcon className="w-8 h-8 text-orange-500" />, title: 'Quality Food', desc: 'Bahan-bahan segar pilihan yang kami seleksi setiap hari untuk menjaga kualitas terbaik.' },
               { icon: <SparklesIcon className="w-8 h-8 text-orange-500" />, title: 'Super Taste', desc: 'Resep rahasia turun-temurun yang menghasilkan cita rasa autentik dan tak terlupakan.', highlight: true },
               { icon: <TruckIcon className="w-8 h-8 text-orange-500" />, title: 'Fast Delivery', desc: 'Pengiriman cepat dan tepat waktu agar makanan sampai dalam kondisi hangat dan segar.' },
             ].map((item, i) => (
-              <div key={i} className={`p-8 rounded-3xl ${item.highlight ? 'bg-white shadow-xl border-2 border-orange-100 scale-105' : 'bg-gray-50'}`}>
+              <div key={i} className={`p-6 sm:p-8 rounded-3xl ${item.highlight ? 'bg-white shadow-xl border-2 border-orange-100 sm:scale-105' : 'bg-gray-50'}`}>
                 <div className="mb-4">{item.icon}</div>
                 <h3 className="font-bold text-gray-900 text-xl mb-3">{item.title}</h3>
                 <p className="text-gray-500 leading-relaxed">{item.desc}</p>
@@ -202,16 +204,16 @@ export default function Home() {
       </section>
 
       {/* TESTIMONIALS */}
-      <section className="py-24 bg-gray-50 overflow-hidden">
-        <div className="max-w-6xl mx-auto px-8">
+      <section className="py-16 sm:py-24 bg-gray-50 overflow-hidden">
+        <div className="max-w-6xl mx-auto px-6 sm:px-8">
 
           {/* Header */}
-          <div className="text-center mb-14">
+          <div className="text-center mb-10 sm:mb-14">
             <span className="inline-flex items-center gap-1.5 bg-white border border-gray-200 text-gray-500 text-xs font-medium px-4 py-1.5 rounded-full mb-5 shadow-sm">
               <StarIcon className="w-3.5 h-3.5 text-orange-400" />
               Testimonials
             </span>
-            <h2 className="text-4xl font-black text-gray-900" style={{ fontFamily: 'Playfair Display, serif' }}>
+            <h2 className="text-3xl sm:text-4xl font-black text-gray-900" style={{ fontFamily: 'Playfair Display, serif' }}>
               What Our <span className="text-orange-500 italic">Customers</span> Are Saying
             </h2>
           </div>
@@ -219,25 +221,25 @@ export default function Home() {
           {/* Scrollable Cards */}
           <div
             ref={scrollRef}
-            className="flex gap-5 overflow-x-auto pb-4"
+            className="flex gap-4 sm:gap-5 overflow-x-auto pb-4 px-1 snap-x snap-mandatory"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {displayTestimonials.map((t, i) => {
               const isCenter = i % 3 === 1
               return (
                 <div key={t.id || i}
-                  className={`bg-white rounded-3xl flex-shrink-0 overflow-hidden border border-gray-100 transition-all ${
+                  className={`bg-white rounded-3xl flex-shrink-0 overflow-hidden border border-gray-100 transition-all snap-center ${
                     isCenter
-                      ? 'w-72 shadow-2xl -mt-3'
-                      : 'w-64 shadow-md'
+                      ? 'w-64 sm:w-72 shadow-2xl sm:-mt-3'
+                      : 'w-56 sm:w-64 shadow-md'
                   }`}>
 
                   {/* Foto atas */}
-                  <div className="h-44 overflow-hidden bg-gradient-to-br from-orange-100 to-orange-200 flex-shrink-0">
+                  <div className="h-36 sm:h-44 overflow-hidden bg-gradient-to-br from-orange-100 to-orange-200 flex-shrink-0">
                     {t.image ? (
                       <img src={t.image} alt={t.name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <span className="text-7xl font-black text-orange-300 select-none">
+                        <span className="text-6xl sm:text-7xl font-black text-orange-300 select-none">
                           {(t.name || 'U')[0].toUpperCase()}
                         </span>
                       </div>
@@ -245,7 +247,7 @@ export default function Home() {
                   </div>
 
                   {/* Konten */}
-                  <div className="p-5">
+                  <div className="p-4 sm:p-5">
                     <h3 className="font-bold text-gray-800 text-sm mb-2">
                       {t.city ? `Pelanggan dari ${t.city}` : 'Pelanggan Setia'}
                     </h3>
@@ -277,13 +279,13 @@ export default function Home() {
           </div>
 
           {/* Navigasi panah — bawah tengah */}
-          <div className="flex justify-center gap-3 mt-10">
+          <div className="flex justify-center gap-3 mt-8 sm:mt-10">
             <button onClick={() => scroll('left')}
-              className="w-12 h-12 rounded-full bg-white border-2 border-gray-200 shadow-sm flex items-center justify-center hover:border-orange-500 hover:text-orange-500 hover:bg-orange-50 transition group">
+              className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white border-2 border-gray-200 shadow-sm flex items-center justify-center hover:border-orange-500 hover:text-orange-500 hover:bg-orange-50 transition group">
               <ChevronLeftIcon className="w-5 h-5 text-gray-500 group-hover:text-orange-500" />
             </button>
             <button onClick={() => scroll('right')}
-              className="w-12 h-12 rounded-full bg-orange-500 border-2 border-orange-500 shadow-sm flex items-center justify-center hover:bg-orange-600 transition">
+              className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-orange-500 border-2 border-orange-500 shadow-sm flex items-center justify-center hover:bg-orange-600 transition">
               <ChevronRightIcon className="w-5 h-5 text-white" />
             </button>
           </div>
@@ -298,9 +300,9 @@ export default function Home() {
       </section>
 
       {/* FOOTER */}
-      <footer className="bg-gray-900 text-white py-16">
-        <div className="max-w-6xl mx-auto px-8 grid grid-cols-4 gap-8">
-          <div>
+      <footer className="bg-gray-900 text-white py-12 sm:py-16">
+        <div className="max-w-6xl mx-auto px-6 sm:px-8 grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-8 sm:gap-8">
+          <div className="col-span-1 xs:col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-4">
               <img
                 src={store.logo}
@@ -333,17 +335,17 @@ export default function Home() {
           </div>
           <div>
             <h4 className="font-semibold mb-4 text-white">Kontak</h4>
-            <p className="text-gray-400 text-sm mb-1">{store.address}</p>
+            <p className="text-gray-400 text-sm mb-1 break-words">{store.address}</p>
             <p className="text-gray-400 text-sm mb-1">{store.phone}</p>
-            <p className="text-gray-400 text-sm">{store.email}</p>
+            <p className="text-gray-400 text-sm break-all">{store.email}</p>
           </div>
-          <div>
+          <div className="col-span-1 xs:col-span-2 md:col-span-1">
             <h4 className="font-semibold mb-4 text-white">Newsletter</h4>
             <p className="text-gray-400 text-sm mb-3">Dapatkan promo dan menu terbaru.</p>
             <div className="flex">
               <input type="email" placeholder="Email kamu..."
-                className="bg-gray-800 text-white px-4 py-2.5 rounded-l-full text-sm flex-1 outline-none placeholder-gray-500 border border-gray-700 border-r-0" />
-              <button className="bg-orange-500 px-5 py-2.5 rounded-r-full hover:bg-orange-600 transition text-sm font-semibold border border-orange-500">
+                className="bg-gray-800 text-white px-4 py-2.5 rounded-l-full text-sm flex-1 min-w-0 outline-none placeholder-gray-500 border border-gray-700 border-r-0" />
+              <button className="bg-orange-500 px-4 sm:px-5 py-2.5 rounded-r-full hover:bg-orange-600 transition text-sm font-semibold border border-orange-500 whitespace-nowrap">
                 Kirim
               </button>
             </div>
@@ -351,8 +353,8 @@ export default function Home() {
         </div>
 
         {/* Bottom bar */}
-        <div className="max-w-6xl mx-auto px-8 mt-10 pt-6 border-t border-gray-800 flex items-center justify-between">
-          <p className="text-gray-500 text-sm">
+        <div className="max-w-6xl mx-auto px-6 sm:px-8 mt-10 pt-6 border-t border-gray-800 flex flex-col sm:flex-row gap-4 sm:gap-0 items-center justify-between">
+          <p className="text-gray-500 text-sm text-center sm:text-left">
             © {new Date().getFullYear()} {store.name}. All rights reserved.
           </p>
           <div className="flex gap-6">

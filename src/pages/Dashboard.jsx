@@ -10,7 +10,7 @@ import {
   CheckIcon, XMarkIcon, TrashIcon, PhoneIcon,
   EnvelopeIcon, PlusIcon, ShoppingBagIcon,
   CheckCircleIcon, ArrowRightOnRectangleIcon,
-  CreditCardIcon
+  CreditCardIcon, Bars3Icon
 } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartSolid, StarIcon as StarSolid } from '@heroicons/react/24/solid'
 
@@ -136,7 +136,7 @@ function ReviewModal({ show, onClose, order, onSubmitDone }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden max-h-[90vh] overflow-y-auto">
         {done ? (
           <div className="p-8 text-center">
             <div className="text-6xl mb-4">🎉</div>
@@ -146,7 +146,7 @@ function ReviewModal({ show, onClose, order, onSubmitDone }) {
           </div>
         ) : (
           <>
-            <div className="bg-orange-500 text-white px-6 py-4 flex items-center justify-between">
+            <div className="bg-orange-500 text-white px-5 sm:px-6 py-4 flex items-center justify-between">
               <div>
                 <h2 className="font-bold text-lg">Beri Ulasan</h2>
                 <p className="text-orange-100 text-xs">
@@ -154,7 +154,7 @@ function ReviewModal({ show, onClose, order, onSubmitDone }) {
                   {pendingCount > 1 && ` • ${pendingCount} menu tersisa`}
                 </p>
               </div>
-              <button onClick={onClose} className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition">
+              <button onClick={onClose} className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition flex-shrink-0">
                 <XMarkIcon className="w-5 h-5 text-white" />
               </button>
             </div>
@@ -168,7 +168,7 @@ function ReviewModal({ show, onClose, order, onSubmitDone }) {
               </div>
             )}
             {currentItem && (
-              <div className="p-6">
+              <div className="p-5 sm:p-6">
                 <div className="flex items-center gap-4 mb-6 bg-orange-50 rounded-2xl p-4">
                   <div className="w-16 h-16 rounded-xl overflow-hidden bg-white flex-shrink-0">
                     {currentItem.foods?.image
@@ -262,6 +262,7 @@ export default function Dashboard() {
   const [showReviewModal, setShowReviewModal] = useState(false)
   const [selectedOrderForReview, setSelectedOrderForReview] = useState(null)
   const [reviewedOrderIds, setReviewedOrderIds] = useState(new Set())
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   useEffect(() => {
     if (!user) { navigate('/login'); return }
@@ -410,6 +411,8 @@ export default function Dashboard() {
     return 'bg-yellow-100 text-yellow-600'
   }
 
+  const currentPageLabel = menuItems.find(m => m.key === activePage)?.label || 'Dashboard'
+
   const OrderProgress = ({ order }) => {
     const steps = ['pending', 'confirmed', 'processing', 'delivered']
     const stepLabels = ['Order Dibuat', 'Dikonfirmasi', 'Diproses', 'Dikirim']
@@ -419,8 +422,8 @@ export default function Dashboard() {
     const { date, time } = formatDateTime(order.created_at)
 
     return (
-      <div className="bg-white rounded-2xl shadow-sm p-5">
-        <div className="flex justify-between items-start mb-3">
+      <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-5">
+        <div className="flex justify-between items-start mb-3 gap-2 flex-wrap">
           <div>
             <p className="font-bold text-gray-800">#{order.id.slice(0,8).toUpperCase()}</p>
             <p className="text-xs text-gray-400">{date} • {time}</p>
@@ -432,8 +435,8 @@ export default function Dashboard() {
             <p className="text-orange-500 font-bold text-sm mt-1">Rp {order.total?.toLocaleString('id-ID')}</p>
           </div>
         </div>
-        <div className="my-4">
-          <div className="flex items-center">
+        <div className="my-4 overflow-x-auto">
+          <div className="flex items-center min-w-[320px]">
             {steps.map((step, i) => (
               <div key={i} className="flex items-center flex-1">
                 <div className={`w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-all ${
@@ -448,7 +451,7 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-          <div className="flex justify-between mt-2">
+          <div className="flex justify-between mt-2 min-w-[320px]">
             {stepLabels.map((label, i) => (
               <span key={i} className={`text-xs font-medium ${i <= activeStep ? 'text-orange-500' : 'text-gray-300'}`}>
                 {label}
@@ -458,7 +461,7 @@ export default function Dashboard() {
         </div>
         <div className="bg-gray-50 rounded-xl p-3 text-sm text-gray-500 flex items-center gap-2">
           <span>📍</span>
-          <span>{order.customer_address || '-'}</span>
+          <span className="break-words">{order.customer_address || '-'}</span>
         </div>
       </div>
     )
@@ -473,24 +476,52 @@ export default function Dashboard() {
         onSubmitDone={fetchOrders}
       />
 
+      {/* MOBILE TOP BAR — diposisikan di bawah Navbar situs (yang sticky top-0 z-50) */}
+      <div className="lg:hidden fixed top-16 left-0 right-0 z-30 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
+        <button onClick={() => setMobileNavOpen(true)}
+          className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition">
+          <Bars3Icon className="w-5 h-5 text-gray-700" />
+        </button>
+        <p className="font-bold text-gray-800 text-sm">{currentPageLabel}</p>
+        <div className="w-9 h-9 rounded-full overflow-hidden bg-orange-100 flex items-center justify-center flex-shrink-0">
+          {profile?.avatar_url
+            ? <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+            : <span className="font-black text-orange-500 text-sm">{name[0].toUpperCase()}</span>
+          }
+        </div>
+      </div>
+
+      {/* MOBILE OVERLAY — mulai dari bawah Navbar juga, biar Navbar tetap kelihatan & bisa diklik untuk nutup */}
+      {mobileNavOpen && (
+        <div className="lg:hidden fixed top-16 inset-x-0 bottom-0 z-30 bg-black/40" onClick={() => setMobileNavOpen(false)} />
+      )}
+
       {/* SIDEBAR */}
-      <aside className="w-64 bg-white shadow-sm flex flex-col py-6 px-4 sticky top-0 h-screen">
-        <div className="flex items-center gap-3 px-3 mb-6">
-          <div className="w-12 h-12 rounded-full overflow-hidden bg-orange-100 flex-shrink-0 flex items-center justify-center">
-            {profile?.avatar_url
-              ? <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-              : <span className="font-black text-orange-500 text-lg">{name[0].toUpperCase()}</span>
-            }
+      <aside className={`w-64 bg-white shadow-sm flex flex-col py-6 px-4 fixed lg:sticky top-16 lg:top-0 h-[calc(100vh-4rem)] lg:h-screen z-40 lg:z-auto transition-transform duration-300 ${
+        mobileNavOpen ? 'translate-x-0' : '-translate-x-full'
+      } lg:translate-x-0`}>
+        <div className="flex items-center justify-between mb-6 px-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-12 h-12 rounded-full overflow-hidden bg-orange-100 flex-shrink-0 flex items-center justify-center">
+              {profile?.avatar_url
+                ? <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                : <span className="font-black text-orange-500 text-lg">{name[0].toUpperCase()}</span>
+              }
+            </div>
+            <div className="min-w-0">
+              <p className="font-bold text-gray-800 text-sm truncate">{name}</p>
+              <p className="text-xs text-gray-400 truncate">{email}</p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="font-bold text-gray-800 text-sm truncate">{name}</p>
-            <p className="text-xs text-gray-400 truncate">{email}</p>
-          </div>
+          <button onClick={() => setMobileNavOpen(false)}
+            className="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition flex-shrink-0">
+            <XMarkIcon className="w-5 h-5 text-gray-500" />
+          </button>
         </div>
 
-        <div className="space-y-1 flex-1">
+        <div className="space-y-1 flex-1 overflow-y-auto">
           {menuItems.map((item) => (
-            <button key={item.key} onClick={() => setActivePage(item.key)}
+            <button key={item.key} onClick={() => { setActivePage(item.key); setMobileNavOpen(false) }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${
                 activePage === item.key ? 'bg-orange-50 text-orange-500' : 'text-gray-600 hover:bg-gray-50'
               }`}>
@@ -524,12 +555,12 @@ export default function Dashboard() {
       </aside>
 
       {/* MAIN */}
-      <main className="flex-1 p-8 overflow-y-auto">
+      <main className="flex-1 p-4 sm:p-8 pt-32 lg:pt-8 overflow-y-auto w-full min-w-0">
 
         {/* ===== DASHBOARD ===== */}
         {activePage === 'dashboard' && (
           <div className="max-w-4xl">
-            <div className="mb-6">
+            <div className="mb-6 hidden lg:block">
               <h1 className="text-2xl font-bold text-gray-800 tracking-tight mb-1">
                 Selamat datang, {name.split(' ')[0]}
               </h1>
@@ -537,28 +568,28 @@ export default function Dashboard() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
               {[
-                { icon: <ShoppingBagIcon className="w-7 h-7 text-orange-500" />, label: 'Total Pesanan', value: orders.filter(o => o.status !== 'waiting_payment').length, bg: 'bg-orange-50', iconBg: 'bg-orange-100', valueColor: 'text-orange-500', key: null },
-                { icon: <CheckCircleIcon className="w-7 h-7 text-green-500" />, label: 'Selesai', value: doneOrders.length, bg: 'bg-green-50', iconBg: 'bg-green-100', valueColor: 'text-green-500', key: null },
-                { icon: <TruckIcon className="w-7 h-7 text-blue-500" />, label: 'Berjalan', value: activeOrders.length, bg: 'bg-blue-50', iconBg: 'bg-blue-100', valueColor: 'text-blue-500', key: 'active' },
-                { icon: <HeartIcon className="w-7 h-7 text-pink-500" />, label: 'Wishlist', value: wishlist.length, bg: 'bg-pink-50', iconBg: 'bg-pink-100', valueColor: 'text-pink-500', key: 'wishlist' },
+                { icon: <ShoppingBagIcon className="w-6 h-6 sm:w-7 sm:h-7 text-orange-500" />, label: 'Total Pesanan', value: orders.filter(o => o.status !== 'waiting_payment').length, bg: 'bg-orange-50', iconBg: 'bg-orange-100', valueColor: 'text-orange-500', key: null },
+                { icon: <CheckCircleIcon className="w-6 h-6 sm:w-7 sm:h-7 text-green-500" />, label: 'Selesai', value: doneOrders.length, bg: 'bg-green-50', iconBg: 'bg-green-100', valueColor: 'text-green-500', key: null },
+                { icon: <TruckIcon className="w-6 h-6 sm:w-7 sm:h-7 text-blue-500" />, label: 'Berjalan', value: activeOrders.length, bg: 'bg-blue-50', iconBg: 'bg-blue-100', valueColor: 'text-blue-500', key: 'active' },
+                { icon: <HeartIcon className="w-6 h-6 sm:w-7 sm:h-7 text-pink-500" />, label: 'Wishlist', value: wishlist.length, bg: 'bg-pink-50', iconBg: 'bg-pink-100', valueColor: 'text-pink-500', key: 'wishlist' },
               ].map((stat, i) => (
                 <div key={i}
                   onClick={() => stat.key && setActivePage(stat.key)}
-                  className={`${stat.bg} rounded-2xl p-5 flex flex-col items-center justify-center gap-2 ${stat.key ? 'cursor-pointer hover:scale-105 transition-transform' : ''}`}>
-                  <div className={`${stat.iconBg} w-14 h-14 rounded-2xl flex items-center justify-center`}>{stat.icon}</div>
-                  <p className={`text-3xl font-black ${stat.valueColor}`}>{stat.value}</p>
-                  <p className="text-xs text-gray-500 font-medium">{stat.label}</p>
+                  className={`${stat.bg} rounded-2xl p-4 sm:p-5 flex flex-col items-center justify-center gap-2 ${stat.key ? 'cursor-pointer hover:scale-105 transition-transform' : ''}`}>
+                  <div className={`${stat.iconBg} w-11 h-11 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center`}>{stat.icon}</div>
+                  <p className={`text-2xl sm:text-3xl font-black ${stat.valueColor}`}>{stat.value}</p>
+                  <p className="text-xs text-gray-500 font-medium text-center">{stat.label}</p>
                 </div>
               ))}
             </div>
 
             {/* Banner waiting payment */}
             {waitingPaymentOrders.length > 0 && (
-              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 flex items-center justify-between mb-4">
+              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                  <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
                     <CreditCardIcon className="w-5 h-5 text-gray-500" />
                   </div>
                   <div>
@@ -577,7 +608,7 @@ export default function Dashboard() {
 
             {/* Banner ulasan */}
             {doneOrders.filter(o => !reviewedOrderIds.has(o.id)).length > 0 && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 flex items-center justify-between mb-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">⭐</span>
                   <div>
@@ -595,9 +626,9 @@ export default function Dashboard() {
             )}
 
             {activeOrders.length > 0 && (
-              <div className="bg-orange-50 rounded-2xl p-4 flex items-center justify-between mb-6">
+              <div className="bg-orange-50 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                  <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
                     <TruckIcon className="w-5 h-5 text-orange-500" />
                   </div>
                   <div>
@@ -612,7 +643,7 @@ export default function Dashboard() {
               </div>
             )}
 
-            <div className="bg-white rounded-2xl shadow-sm p-5">
+            <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-5">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="font-bold text-gray-900">Pesanan Terbaru</h2>
                 <button onClick={() => setActivePage('history')} className="text-orange-500 text-sm hover:underline">Lihat Semua</button>
@@ -625,11 +656,11 @@ export default function Dashboard() {
                     <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center flex-shrink-0">
                       <ShoppingBagIcon className="w-5 h-5 text-orange-400" />
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-800">#{order.id.slice(0,8).toUpperCase()}</p>
                       <p className="text-xs text-gray-400">{date}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right flex-shrink-0">
                       <span className={`text-xs px-2 py-1 rounded-full font-medium ${status.color}`}>{status.label}</span>
                       <p className="text-sm font-bold text-orange-500 mt-1">Rp {order.total?.toLocaleString('id-ID')}</p>
                     </div>
@@ -646,16 +677,16 @@ export default function Dashboard() {
         {/* ===== PROFIL SAYA ===== */}
         {activePage === 'profile' && (
           <div className="max-w-5xl">
-            <h1 className="text-2xl font-bold text-gray-800 tracking-tight mb-1">Profil Saya</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-800 tracking-tight mb-1">Profil Saya</h1>
             <p className="text-gray-400 text-sm mb-6">Kelola informasi profil dan akun kamu.</p>
 
-            <div className="bg-white rounded-2xl shadow-sm p-6 mb-6 flex items-center justify-between">
-              <div className="flex items-center gap-5">
-                <div className="relative">
-                  <div className="w-20 h-20 rounded-full overflow-hidden bg-orange-100 flex items-center justify-center">
+            <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4 sm:gap-5">
+                <div className="relative flex-shrink-0">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden bg-orange-100 flex items-center justify-center">
                     {(avatarPreview || profile?.avatar_url)
                       ? <img src={avatarPreview || profile?.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-                      : <span className="text-3xl font-black text-orange-500">{name[0].toUpperCase()}</span>
+                      : <span className="text-2xl sm:text-3xl font-black text-orange-500">{name[0].toUpperCase()}</span>
                     }
                   </div>
                   {editing && (
@@ -665,15 +696,15 @@ export default function Dashboard() {
                     </label>
                   )}
                 </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">{name}</h2>
+                <div className="min-w-0">
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 truncate">{name}</h2>
                   <div className="flex items-center gap-2 mt-1">
-                    <EnvelopeIcon className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm text-gray-500">{email}</span>
+                    <EnvelopeIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    <span className="text-sm text-gray-500 truncate">{email}</span>
                   </div>
                   {profile?.phone && (
                     <div className="flex items-center gap-2 mt-1">
-                      <PhoneIcon className="w-4 h-4 text-gray-400" />
+                      <PhoneIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
                       <span className="text-sm text-gray-500">{profile.phone}</span>
                     </div>
                   )}
@@ -682,18 +713,18 @@ export default function Dashboard() {
               </div>
               {!editing ? (
                 <button onClick={() => setEditing(true)}
-                  className="flex items-center gap-2 border border-orange-500 text-orange-500 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-orange-50 transition">
+                  className="flex items-center justify-center gap-2 border border-orange-500 text-orange-500 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-orange-50 transition flex-shrink-0">
                   <PencilIcon className="w-4 h-4" />
                   Edit Profil
                 </button>
               ) : (
                 <div className="flex gap-2">
                   <button onClick={() => { setEditing(false); setAvatarFile(null); setAvatarPreview(null) }}
-                    className="flex items-center gap-2 border border-gray-200 text-gray-600 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 border border-gray-200 text-gray-600 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
                     <XMarkIcon className="w-4 h-4" />Batal
                   </button>
                   <button onClick={handleSaveProfile} disabled={saving}
-                    className="flex items-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-orange-600 transition disabled:opacity-50">
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-orange-600 transition disabled:opacity-50">
                     <CheckIcon className="w-4 h-4" />
                     {saving ? 'Menyimpan...' : 'Simpan'}
                   </button>
@@ -701,8 +732,8 @@ export default function Dashboard() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-6 mb-6">
-              <div className="bg-white rounded-2xl shadow-sm p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6">
                 <h3 className="font-bold text-gray-900 mb-4">Informasi Pribadi</h3>
                 <div className="space-y-4">
                   {[
@@ -711,58 +742,58 @@ export default function Dashboard() {
                     { label: 'Tanggal Lahir', key: 'birth_date', type: 'date' },
                     { label: 'Pekerjaan', key: 'job', placeholder: 'Pekerjaan kamu' },
                   ].map((field) => (
-                    <div key={field.key} className="flex justify-between items-start py-2 border-b border-gray-50">
-                      <span className="text-sm text-gray-400 w-32 flex-shrink-0">{field.label}</span>
+                    <div key={field.key} className="flex flex-col sm:flex-row justify-between items-start gap-1.5 sm:gap-3 py-2 border-b border-gray-50">
+                      <span className="text-sm text-gray-400 sm:w-32 flex-shrink-0">{field.label}</span>
                       {editing ? (
                         <input type={field.type || 'text'} value={form[field.key]}
                           onChange={e => setForm({ ...form, [field.key]: e.target.value })}
                           placeholder={field.placeholder}
-                          className="flex-1 text-sm text-gray-800 border border-gray-200 rounded-xl px-3 py-1.5 outline-none focus:border-orange-400 transition" />
+                          className="w-full sm:flex-1 text-sm text-gray-800 border border-gray-200 rounded-xl px-3 py-1.5 outline-none focus:border-orange-400 transition" />
                       ) : (
-                        <span className="text-sm text-gray-800 font-medium text-right flex-1">{form[field.key] || '-'}</span>
+                        <span className="text-sm text-gray-800 font-medium sm:text-right flex-1">{form[field.key] || '-'}</span>
                       )}
                     </div>
                   ))}
-                  <div className="flex justify-between items-center py-2 border-b border-gray-50">
-                    <span className="text-sm text-gray-400 w-32 flex-shrink-0">Jenis Kelamin</span>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5 sm:gap-3 py-2 border-b border-gray-50">
+                    <span className="text-sm text-gray-400 sm:w-32 flex-shrink-0">Jenis Kelamin</span>
                     {editing ? (
                       <select value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })}
-                        className="flex-1 text-sm text-gray-800 border border-gray-200 rounded-xl px-3 py-1.5 outline-none focus:border-orange-400 transition">
+                        className="w-full sm:flex-1 text-sm text-gray-800 border border-gray-200 rounded-xl px-3 py-1.5 outline-none focus:border-orange-400 transition">
                         <option value="">Pilih</option>
                         <option value="Laki-laki">Laki-laki</option>
                         <option value="Perempuan">Perempuan</option>
                       </select>
                     ) : (
-                      <span className="text-sm text-gray-800 font-medium text-right flex-1">{form.gender || '-'}</span>
+                      <span className="text-sm text-gray-800 font-medium sm:text-right flex-1">{form.gender || '-'}</span>
                     )}
                   </div>
-                  <div className="flex justify-between items-start py-2">
-                    <span className="text-sm text-gray-400 w-32 flex-shrink-0">Alamat</span>
+                  <div className="flex flex-col sm:flex-row justify-between items-start gap-1.5 sm:gap-3 py-2">
+                    <span className="text-sm text-gray-400 sm:w-32 flex-shrink-0">Alamat</span>
                     {editing ? (
                       <textarea value={form.address} onChange={e => setForm({ ...form, address: e.target.value })}
                         placeholder="Alamat lengkap" rows={2}
-                        className="flex-1 text-sm text-gray-800 border border-gray-200 rounded-xl px-3 py-1.5 outline-none focus:border-orange-400 transition resize-none" />
+                        className="w-full sm:flex-1 text-sm text-gray-800 border border-gray-200 rounded-xl px-3 py-1.5 outline-none focus:border-orange-400 transition resize-none" />
                     ) : (
-                      <span className="text-sm text-gray-800 font-medium text-right flex-1">{form.address || '-'}</span>
+                      <span className="text-sm text-gray-800 font-medium sm:text-right flex-1">{form.address || '-'}</span>
                     )}
                   </div>
                 </div>
               </div>
 
               <div className="space-y-6">
-                <div className="bg-white rounded-2xl shadow-sm p-6">
+                <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6">
                   <h3 className="font-bold text-gray-900 mb-4">Keamanan Akun</h3>
                   <div className="space-y-3">
-                    <div className="flex justify-between items-center py-2 border-b border-gray-50">
+                    <div className="flex flex-col xs:flex-row justify-between xs:items-center gap-2 py-2 border-b border-gray-50">
                       <span className="text-sm text-gray-600">Password</span>
                       <div className="flex items-center gap-3">
                         <span className="text-sm text-gray-400 tracking-widest">••••••••</span>
-                        <button className="text-xs border border-orange-300 text-orange-500 px-3 py-1 rounded-lg hover:bg-orange-50 transition">Ubah Password</button>
+                        <button className="text-xs border border-orange-300 text-orange-500 px-3 py-1 rounded-lg hover:bg-orange-50 transition whitespace-nowrap">Ubah Password</button>
                       </div>
                     </div>
-                    <div className="flex justify-between items-center py-2 border-b border-gray-50">
+                    <div className="flex justify-between items-center py-2 border-b border-gray-50 gap-2">
                       <span className="text-sm text-gray-600">Login Terakhir</span>
-                      <span className="text-sm text-gray-400">{lastLogin ? `${lastLogin.date} • ${lastLogin.time}` : '-'}</span>
+                      <span className="text-sm text-gray-400 text-right">{lastLogin ? `${lastLogin.date} • ${lastLogin.time}` : '-'}</span>
                     </div>
                     <div className="flex justify-between items-center py-2">
                       <span className="text-sm text-gray-600">Perangkat Aktif</span>
@@ -771,7 +802,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-sm p-6">
+                <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6">
                   <h3 className="font-bold text-gray-900 mb-4">Preferensi Akun</h3>
                   <div className="space-y-3">
                     {[
@@ -779,10 +810,10 @@ export default function Dashboard() {
                       { label: 'Notifikasi SMS / WhatsApp', value: notifSms, set: setNotifSms },
                       { label: 'Newsletter & Promo', value: notifPromo, set: setNotifPromo },
                     ].map((item, i) => (
-                      <div key={i} className="flex justify-between items-center">
+                      <div key={i} className="flex justify-between items-center gap-2">
                         <span className="text-sm text-gray-600">{item.label}</span>
                         <button onClick={() => item.set(!item.value)}
-                          className={`w-11 h-6 rounded-full transition-colors relative ${item.value ? 'bg-orange-500' : 'bg-gray-200'}`}>
+                          className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${item.value ? 'bg-orange-500' : 'bg-gray-200'}`}>
                           <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all shadow-sm ${item.value ? 'left-5' : 'left-0.5'}`} />
                         </button>
                       </div>
@@ -792,39 +823,39 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
+            <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 mb-6">
               <h3 className="font-bold text-gray-900 mb-4">Statistik Akun</h3>
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
                   { icon: <ShoppingBagIcon className="w-6 h-6 text-orange-500" />, label: 'Total Pesanan', value: orders.filter(o => o.status !== 'waiting_payment').length, bg: 'bg-orange-50', iconBg: 'bg-orange-100' },
                   { icon: <CheckCircleIcon className="w-6 h-6 text-green-500" />, label: 'Pesanan Selesai', value: doneOrders.length, bg: 'bg-green-50', iconBg: 'bg-green-100' },
                   { icon: <TruckIcon className="w-6 h-6 text-blue-500" />, label: 'Pesanan Berjalan', value: activeOrders.length, bg: 'bg-blue-50', iconBg: 'bg-blue-100' },
                   { icon: <HeartIcon className="w-6 h-6 text-pink-500" />, label: 'Wishlist', value: wishlist.length, bg: 'bg-pink-50', iconBg: 'bg-pink-100' },
                 ].map((stat, i) => (
-                  <div key={i} className={`${stat.bg} rounded-2xl p-4 flex items-center gap-3`}>
-                    <div className={`${stat.iconBg} w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0`}>{stat.icon}</div>
-                    <div>
-                      <p className="text-xl font-black text-gray-900">{stat.value}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">{stat.label}</p>
+                  <div key={i} className={`${stat.bg} rounded-2xl p-3 sm:p-4 flex items-center gap-3`}>
+                    <div className={`${stat.iconBg} w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0`}>{stat.icon}</div>
+                    <div className="min-w-0">
+                      <p className="text-lg sm:text-xl font-black text-gray-900">{stat.value}</p>
+                      <p className="text-xs text-gray-500 mt-0.5 truncate">{stat.label}</p>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white rounded-2xl shadow-sm p-6 flex items-center justify-between">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 flex flex-col xs:flex-row items-start xs:items-center justify-between gap-3">
                 <div>
                   <h3 className="font-bold text-gray-800 mb-1">Keluar Akun</h3>
                   <p className="text-sm text-gray-400">Kamu akan keluar dari sesi ini.</p>
                 </div>
                 <button onClick={handleLogout}
-                  className="flex items-center gap-2 border border-gray-300 text-gray-600 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
+                  className="flex items-center gap-2 border border-gray-300 text-gray-600 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 transition flex-shrink-0">
                   <ArrowRightOnRectangleIcon className="w-4 h-4" />
                   Logout
                 </button>
               </div>
-              <div className="bg-white rounded-2xl shadow-sm p-6 border border-red-100 flex items-center justify-between">
+              <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 border border-red-100 flex flex-col xs:flex-row items-start xs:items-center justify-between gap-3">
                 <div>
                   <h3 className="font-bold text-red-600 mb-1 flex items-center gap-2">
                     <TrashIcon className="w-4 h-4" />
@@ -832,7 +863,7 @@ export default function Dashboard() {
                   </h3>
                   <p className="text-sm text-gray-400">Data dihapus permanen, tidak bisa dipulihkan.</p>
                 </div>
-                <button className="border border-red-400 text-red-500 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-red-50 transition">Hapus</button>
+                <button className="border border-red-400 text-red-500 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-red-50 transition flex-shrink-0">Hapus</button>
               </div>
             </div>
           </div>
@@ -841,11 +872,11 @@ export default function Dashboard() {
         {/* ===== RIWAYAT PESANAN ===== */}
         {activePage === 'history' && (
           <div className="max-w-4xl">
-            <h1 className="text-2xl font-bold text-gray-800 tracking-tight mb-1">Riwayat Pesanan</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-800 tracking-tight mb-1">Riwayat Pesanan</h1>
             <p className="text-gray-400 text-sm mb-6">Semua pesanan yang pernah kamu buat.</p>
 
             {orders.length === 0 ? (
-              <div className="bg-white rounded-2xl shadow-sm p-12 text-center">
+              <div className="bg-white rounded-2xl shadow-sm p-8 sm:p-12 text-center">
                 <ShoppingBagIcon className="w-14 h-14 text-gray-200 mx-auto mb-4" />
                 <p className="font-semibold text-gray-700 mb-1">Belum ada pesanan</p>
                 <p className="text-sm text-gray-400 mb-6">Yuk pesan makanan favoritmu!</p>
@@ -864,12 +895,12 @@ export default function Dashboard() {
 
                   return (
                     <div key={order.id} className={`bg-white rounded-2xl shadow-sm overflow-hidden ${isWaitingPayment ? 'opacity-75' : ''}`}>
-                      <div className="flex justify-between items-center px-5 pt-5 pb-3 border-b border-gray-50">
+                      <div className="flex flex-col xs:flex-row xs:justify-between xs:items-center gap-2 px-4 sm:px-5 pt-5 pb-3 border-b border-gray-50">
                         <div>
                           <p className="font-bold text-gray-800">#{order.id.slice(0,8).toUpperCase()}</p>
                           <p className="text-xs text-gray-400">{date} • {time}</p>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 flex-wrap">
                           {isDone && !isFullyReviewed && (
                             <button onClick={() => handleOpenReview(order)}
                               className="flex items-center gap-1.5 bg-orange-500 text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-orange-600 transition">
@@ -888,7 +919,7 @@ export default function Dashboard() {
                         </div>
                       </div>
 
-                      <div className="px-5 py-3 space-y-3">
+                      <div className="px-4 sm:px-5 py-3 space-y-3">
                         {order.order_items?.map((item, i) => (
                           <div key={i} className="flex items-center gap-3">
                             <div className="w-12 h-12 bg-orange-50 rounded-xl overflow-hidden flex-shrink-0">
@@ -897,18 +928,18 @@ export default function Dashboard() {
                                 : <div className="w-full h-full flex items-center justify-center text-xl">🍽️</div>
                               }
                             </div>
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-800">{item.foods?.name || 'Menu'}</p>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-800 truncate">{item.foods?.name || 'Menu'}</p>
                               <p className="text-xs text-gray-400">x{item.quantity}</p>
                             </div>
-                            <p className="text-sm font-bold text-gray-800">
+                            <p className="text-sm font-bold text-gray-800 flex-shrink-0">
                               Rp {(item.price * item.quantity).toLocaleString('id-ID')}
                             </p>
                           </div>
                         ))}
                       </div>
 
-                      <div className="flex justify-between items-center border-t border-gray-50 px-5 py-3">
+                      <div className="flex justify-between items-center border-t border-gray-50 px-4 sm:px-5 py-3">
                         <span className="text-sm text-gray-500">Total Pembayaran</span>
                         <span className="font-black text-orange-500 text-lg">
                           Rp {order.total?.toLocaleString('id-ID')}
@@ -917,14 +948,14 @@ export default function Dashboard() {
 
                       {/* Banner lanjut bayar */}
                       {isWaitingPayment && (
-                        <div className="bg-gray-50 border-t border-gray-100 px-5 py-3 flex items-center justify-between">
+                        <div className="bg-gray-50 border-t border-gray-100 px-4 sm:px-5 py-3 flex flex-col xs:flex-row xs:items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
                             <CreditCardIcon className="w-4 h-4 text-gray-500" />
                             <p className="text-sm text-gray-600 font-medium">Pesanan belum dibayar</p>
                           </div>
                           <button
                             onClick={() => handleLanjutBayar(order)}
-                            className="bg-orange-500 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-orange-600 transition flex items-center gap-1.5">
+                            className="bg-orange-500 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-orange-600 transition flex items-center justify-center gap-1.5">
                             <CreditCardIcon className="w-3.5 h-3.5" />
                             Bayar Sekarang
                           </button>
@@ -932,7 +963,7 @@ export default function Dashboard() {
                       )}
 
                       {isDone && !isFullyReviewed && (
-                        <div className="bg-orange-50 px-5 py-3 flex items-center justify-between">
+                        <div className="bg-orange-50 px-4 sm:px-5 py-3 flex items-center justify-between gap-2">
                           <p className="text-sm text-gray-700 font-medium">⭐ Bagaimana pengalaman kamu?</p>
                           <button onClick={() => handleOpenReview(order)}
                             className="text-orange-500 text-sm font-semibold hover:underline flex-shrink-0">
@@ -951,10 +982,10 @@ export default function Dashboard() {
         {/* ===== PESANAN BERJALAN ===== */}
         {activePage === 'active' && (
           <div className="max-w-4xl">
-            <h1 className="text-2xl font-bold text-gray-800 tracking-tight mb-1">Pesanan Berjalan</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-800 tracking-tight mb-1">Pesanan Berjalan</h1>
             <p className="text-gray-400 text-sm mb-6">Status pesanan update otomatis secara real-time.</p>
             {activeOrders.length === 0 ? (
-              <div className="bg-white rounded-2xl shadow-sm p-12 text-center">
+              <div className="bg-white rounded-2xl shadow-sm p-8 sm:p-12 text-center">
                 <TruckIcon className="w-14 h-14 text-gray-200 mx-auto mb-4" />
                 <p className="font-semibold text-gray-700 mb-1">Tidak ada pesanan aktif</p>
                 <p className="text-sm text-gray-400">Semua pesananmu sudah selesai.</p>
@@ -970,10 +1001,10 @@ export default function Dashboard() {
         {/* ===== WISHLIST ===== */}
         {activePage === 'wishlist' && (
           <div className="max-w-4xl">
-            <div className="flex items-center justify-between mb-1">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-1">
               <div className="flex items-center gap-3">
-                <HeartSolid className="w-7 h-7 text-orange-500" />
-                <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Wishlist</h1>
+                <HeartSolid className="w-6 h-6 sm:w-7 sm:h-7 text-orange-500" />
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-800 tracking-tight">Wishlist</h1>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-sm text-gray-500 font-medium">{wishlist.length} item</span>
@@ -986,7 +1017,7 @@ export default function Dashboard() {
                 )}
               </div>
             </div>
-            <p className="text-gray-400 text-sm mb-6 ml-10">Daftar makanan dan minuman favoritmu.</p>
+            <p className="text-gray-400 text-sm mb-6 sm:ml-10">Daftar makanan dan minuman favoritmu.</p>
 
             {wishlist.length > 0 && (
               <div className="flex gap-2 mb-6 flex-wrap">
@@ -1007,7 +1038,7 @@ export default function Dashboard() {
             {loadingWishlist ? (
               <div className="space-y-4">{[...Array(3)].map((_, i) => <div key={i} className="bg-white rounded-2xl p-4 h-32 animate-pulse" />)}</div>
             ) : wishlist.length === 0 ? (
-              <div className="bg-white rounded-2xl shadow-sm p-16 text-center">
+              <div className="bg-white rounded-2xl shadow-sm p-10 sm:p-16 text-center">
                 <HeartIcon className="w-16 h-16 text-gray-200 mx-auto mb-4" />
                 <p className="font-bold text-gray-700 text-lg mb-2">Wishlist masih kosong</p>
                 <p className="text-gray-400 text-sm mb-6">Tambahkan menu favoritmu dengan menekan ikon hati di halaman menu.</p>
@@ -1023,33 +1054,44 @@ export default function Dashboard() {
                     if (!food) return null
                     return (
                       <div key={item.id}
-                        className={`flex items-center gap-4 p-5 ${idx < filteredWishlist.length - 1 ? 'border-b border-gray-50' : ''} hover:bg-gray-50/50 transition`}>
-                        <div className="w-24 h-24 rounded-2xl overflow-hidden bg-orange-50 flex-shrink-0">
-                          {food.image
-                            ? <img src={food.image} alt={food.name} className="w-full h-full object-cover" />
-                            : <div className="w-full h-full flex items-center justify-center text-4xl">🍽️</div>
-                          }
+                        className={`flex flex-col sm:flex-row sm:items-center gap-4 p-4 sm:p-5 ${idx < filteredWishlist.length - 1 ? 'border-b border-gray-50' : ''} hover:bg-gray-50/50 transition`}>
+                        <div className="flex gap-4">
+                          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden bg-orange-50 flex-shrink-0">
+                            {food.image
+                              ? <img src={food.image} alt={food.name} className="w-full h-full object-cover" />
+                              : <div className="w-full h-full flex items-center justify-center text-4xl">🍽️</div>
+                            }
+                          </div>
+                          <div className="flex-1 min-w-0 sm:hidden">
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getCategoryColor(food.categories?.name)}`}>
+                              {food.categories?.name}
+                            </span>
+                            <h3 className="font-bold text-gray-800 text-base mt-1">{food.name}</h3>
+                            <p className="font-black text-gray-800 text-base mt-1">Rp {food.price?.toLocaleString('id-ID')}
+                              {food.unit && <span className="text-xs text-gray-400 font-normal"> /{food.unit}</span>}
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 hidden sm:block">
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getCategoryColor(food.categories?.name)}`}>
                             {food.categories?.name}
                           </span>
                           <h3 className="font-bold text-gray-800 text-base mt-1">{food.name}</h3>
                           {food.description && <p className="text-xs text-gray-400 line-clamp-2 mt-1">{food.description}</p>}
                         </div>
-                        <div className="flex flex-col items-end gap-3 flex-shrink-0">
-                          <div className="text-right">
+                        <div className="flex flex-col sm:items-end gap-3 flex-shrink-0">
+                          <div className="text-right hidden sm:block">
                             <p className="font-black text-gray-800 text-lg">Rp {food.price?.toLocaleString('id-ID')}</p>
                             {food.unit && <p className="text-xs text-gray-400">/{food.unit}</p>}
                           </div>
                           <div className="flex items-center gap-2">
                             <button onClick={() => handleAddToCart(food)}
-                              className="flex items-center gap-1.5 border-2 border-orange-500 text-orange-500 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-orange-500 hover:text-white transition">
+                              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 border-2 border-orange-500 text-orange-500 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-orange-500 hover:text-white transition">
                               <PlusIcon className="w-4 h-4" />
                               Tambah ke Keranjang
                             </button>
                             <button onClick={() => removeFromWishlist(item.food_id)}
-                              className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-red-50 transition">
+                              className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-red-50 transition flex-shrink-0">
                               <HeartSolid className="w-5 h-5 text-red-500" />
                             </button>
                           </div>
@@ -1058,8 +1100,8 @@ export default function Dashboard() {
                     )
                   })}
                 </div>
-                <div className="mt-4 flex items-center justify-center gap-2 text-gray-400 text-sm bg-white rounded-2xl py-4 shadow-sm">
-                  <HeartIcon className="w-4 h-4" />
+                <div className="mt-4 flex items-center justify-center gap-2 text-gray-400 text-sm bg-white rounded-2xl py-4 px-4 shadow-sm text-center">
+                  <HeartIcon className="w-4 h-4 flex-shrink-0" />
                   <span>Item di wishlist tidak akan berkurang meskipun stok habis.</span>
                 </div>
               </>

@@ -291,20 +291,20 @@ export default function FoodDetail() {
   const multiOptions = options.filter(o => o.group_type === 'multiple')
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-24 lg:pb-0">
       {/* Breadcrumb */}
-      <div className="bg-white border-b border-gray-100 px-8 py-3">
-        <p className="text-sm text-gray-400 flex items-center gap-1">
+      <div className="bg-white border-b border-gray-100 px-4 sm:px-8 py-3 overflow-x-auto">
+        <p className="text-sm text-gray-400 flex items-center gap-1 whitespace-nowrap">
           <Link to="/" className="hover:text-orange-500">Beranda</Link>
-          <ChevronRightIcon className="w-3 h-3" />
+          <ChevronRightIcon className="w-3 h-3 flex-shrink-0" />
           <Link to="/menu" className="hover:text-orange-500">{food.categories?.name}</Link>
-          <ChevronRightIcon className="w-3 h-3" />
-          <span className="text-gray-700">{food.name}</span>
+          <ChevronRightIcon className="w-3 h-3 flex-shrink-0" />
+          <span className="text-gray-700 truncate">{food.name}</span>
         </p>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-2 gap-10 mb-8">
+      <div className="max-w-6xl mx-auto px-4 py-6 sm:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 mb-8">
 
           {/* KIRI */}
           <div>
@@ -338,22 +338,22 @@ export default function FoodDetail() {
               <p className="text-gray-500 text-sm leading-relaxed mb-4">{food.description}</p>
               <div className="space-y-2.5">
                 {food.min_order > 1 && (
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between text-sm gap-3">
                     <span className="text-gray-400">👥 Minimal pemesanan</span>
-                    <span className="font-medium text-gray-700">{food.min_order} {food.unit}</span>
+                    <span className="font-medium text-gray-700 text-right">{food.min_order} {food.unit}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-sm gap-3">
                   <span className="text-gray-400">⏰ Waktu pemesanan</span>
-                  <span className="font-medium text-gray-700">H-1 sebelum 15.00 WIB</span>
+                  <span className="font-medium text-gray-700 text-right">H-1 sebelum 15.00 WIB</span>
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-sm gap-3">
                   <span className="text-gray-400">🚚 Pengiriman</span>
-                  <span className="font-medium text-gray-700">Gratis ongkir area tertentu</span>
+                  <span className="font-medium text-gray-700 text-right">Gratis ongkir area tertentu</span>
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-sm gap-3">
                   <span className="text-gray-400">📦 Kemasan</span>
-                  <span className="font-medium text-gray-700">Food grade & higienis</span>
+                  <span className="font-medium text-gray-700 text-right">Food grade & higienis</span>
                 </div>
               </div>
             </div>
@@ -364,45 +364,45 @@ export default function FoodDetail() {
             <span className="inline-block bg-orange-100 text-orange-500 text-xs font-semibold px-3 py-1 rounded-full mb-3">
               {food.categories?.name}
             </span>
-            <h1 className="text-3xl font-black text-gray-900 mb-1" style={{ fontFamily: 'Playfair Display, serif' }}>
+            <h1 className="text-2xl sm:text-3xl font-black text-gray-900 mb-1" style={{ fontFamily: 'Playfair Display, serif' }}>
               {food.name}
             </h1>
             <p className="text-gray-400 text-sm mb-3">{food.description}</p>
 
             {/* Rating realtime */}
-            <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mb-3">
               <RatingStars rating={avgRating} />
               <span className="text-sm text-gray-600 font-medium">
                 {avgRating > 0 ? avgRating : '-'}
               </span>
-              <span className="text-gray-300">•</span>
+              <span className="text-gray-300 hidden xs:inline">•</span>
               <span className="text-sm text-gray-500">{reviewCount} ulasan</span>
-              <span className="text-gray-300">•</span>
+              <span className="text-gray-300 hidden xs:inline">•</span>
               <span className="text-sm text-gray-500">{soldCount}+ terjual</span>
             </div>
 
-            <p className="text-4xl font-black text-orange-500 mb-5">
+            <p className="text-3xl sm:text-4xl font-black text-orange-500 mb-5">
               Rp {food.price?.toLocaleString('id-ID')}
-              <span className="text-lg text-gray-400 font-normal">/{food.unit || 'porsi'}</span>
+              <span className="text-base sm:text-lg text-gray-400 font-normal">/{food.unit || 'porsi'}</span>
             </p>
 
             {/* Pilihan Single */}
             {singleOptions.map((opt, idx) => (
-              <div key={opt.id} className="bg-white rounded-2xl p-5 shadow-sm mb-3">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                    <span className="w-6 h-6 bg-orange-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+              <div key={opt.id} className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm mb-3">
+                <div className="flex justify-between items-center mb-4 gap-2">
+                  <h3 className="font-bold text-gray-900 flex items-center gap-2 text-sm sm:text-base">
+                    <span className="w-6 h-6 bg-orange-500 text-white text-xs rounded-full flex items-center justify-center font-bold flex-shrink-0">
                       {idx + 1}
                     </span>
                     {opt.group_name}
                   </h3>
                   {opt.required && (
-                    <span className="text-orange-500 text-xs font-medium bg-orange-50 px-2 py-1 rounded-full">
+                    <span className="text-orange-500 text-xs font-medium bg-orange-50 px-2 py-1 rounded-full flex-shrink-0">
                       Wajib pilih 1
                     </span>
                   )}
                 </div>
-                <div className="grid grid-cols-5 gap-2">
+                <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-5 gap-2">
                   {opt.food_option_items?.map(item => (
                     <button key={item.id}
                       onClick={() => setSelected(prev => ({ ...prev, [opt.id]: item.id }))}
@@ -414,12 +414,12 @@ export default function FoodDetail() {
                           <CheckIcon className="w-2.5 h-2.5 text-white" />
                         </div>
                       )}
-                      <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center text-2xl overflow-hidden">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-50 rounded-xl flex items-center justify-center text-2xl overflow-hidden">
                         {item.image ? <img src={item.image} alt={item.name} className="w-full h-full object-cover rounded-xl" /> : '🍽️'}
                       </div>
-                      <p className="text-xs text-center text-gray-700 leading-tight font-medium">{item.name}</p>
+                      <p className="text-[11px] sm:text-xs text-center text-gray-700 leading-tight font-medium">{item.name}</p>
                       {item.extra_price > 0 && (
-                        <p className="text-xs text-orange-500 font-medium">+Rp {item.extra_price?.toLocaleString('id-ID')}</p>
+                        <p className="text-[10px] sm:text-xs text-orange-500 font-medium">+Rp {item.extra_price?.toLocaleString('id-ID')}</p>
                       )}
                     </button>
                   ))}
@@ -429,14 +429,14 @@ export default function FoodDetail() {
 
             {/* Add On */}
             {multiOptions.map(opt => (
-              <div key={opt.id} className="bg-white rounded-2xl p-5 shadow-sm mb-3">
+              <div key={opt.id} className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm mb-3">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold text-gray-900">{opt.group_name}</h3>
+                  <h3 className="font-bold text-gray-900 text-sm sm:text-base">{opt.group_name}</h3>
                   <span className="text-gray-400 text-xs bg-gray-50 px-2 py-1 rounded-full">Opsional</span>
                 </div>
                 <div className="space-y-2">
                   {opt.food_option_items?.map(item => (
-                    <div key={item.id} className="flex items-center justify-between py-1">
+                    <div key={item.id} className="flex items-center justify-between py-1 gap-2 flex-wrap">
                       <div className="flex items-center gap-3">
                         <input type="checkbox"
                           checked={!!selectedMulti[item.id]}
@@ -466,9 +466,9 @@ export default function FoodDetail() {
 
             {/* Product Add On — dari relasi product_addons yang diatur admin */}
             {productAddons.length > 0 && (
-              <div className="bg-white rounded-2xl p-5 shadow-sm mb-3 border-2 border-purple-100">
+              <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm mb-3 border-2 border-purple-100">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                  <h3 className="font-bold text-gray-900 flex items-center gap-2 text-sm sm:text-base">
                     <span className="text-purple-500 text-lg">+</span> Tambah Add On
                   </h3>
                   <span className="text-purple-500 text-xs font-medium bg-purple-50 px-2 py-1 rounded-full">Opsional</span>
@@ -477,7 +477,7 @@ export default function FoodDetail() {
                   {productAddons.map(addon => {
                     const addonQty = selectedProductAddons[addon.id] || 0
                     return (
-                      <div key={addon.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                      <div key={addon.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0 gap-2">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           <div className="w-10 h-10 rounded-lg overflow-hidden bg-orange-50 flex-shrink-0">
                             {addon.image
@@ -513,8 +513,8 @@ export default function FoodDetail() {
             )}
 
             {/* Jumlah */}
-            <div className="bg-white rounded-2xl p-5 shadow-sm mb-4">
-              <h3 className="font-bold text-gray-900 mb-1">Jumlah ({food.unit || 'porsi'})</h3>
+            <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm mb-4">
+              <h3 className="font-bold text-gray-900 mb-1 text-sm sm:text-base">Jumlah ({food.unit || 'porsi'})</h3>
               {food.min_order > 1 && (
                 <p className="text-xs text-gray-400 mb-3">Minimal pemesanan {food.min_order} {food.unit}</p>
               )}
@@ -533,10 +533,10 @@ export default function FoodDetail() {
 
             {/* Total */}
             <div className="bg-orange-50 rounded-2xl p-4 mb-5">
-              <div className="flex justify-between items-center">
-                <span className="font-semibold text-gray-700">Total Harga</span>
+              <div className="flex justify-between items-center gap-2">
+                <span className="font-semibold text-gray-700 text-sm sm:text-base">Total Harga</span>
                 <div className="text-right">
-                  <p className="text-2xl font-black text-orange-500">Rp {total.toLocaleString('id-ID')}</p>
+                  <p className="text-xl sm:text-2xl font-black text-orange-500">Rp {total.toLocaleString('id-ID')}</p>
                   <p className="text-xs text-gray-400">({qty} {food.unit || 'porsi'})</p>
                 </div>
               </div>
@@ -558,9 +558,10 @@ export default function FoodDetail() {
               </div>
             )}
 
-            <div className="flex gap-3">
+            {/* Sticky action bar di mobile, statis di desktop */}
+            <div className="fixed lg:static bottom-0 left-0 right-0 z-30 bg-white lg:bg-transparent border-t lg:border-0 border-gray-100 p-4 lg:p-0 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] lg:shadow-none flex gap-3">
               <button onClick={handleAddToCart}
-                className={`flex-1 border-2 py-4 rounded-2xl font-bold transition flex items-center justify-center gap-2 ${
+                className={`flex-1 border-2 py-3.5 sm:py-4 rounded-2xl font-bold transition flex items-center justify-center gap-2 text-sm sm:text-base ${
                   addedToCart
                     ? 'border-green-500 bg-green-50 text-green-600'
                     : 'border-orange-500 text-orange-500 hover:bg-orange-50'
@@ -568,7 +569,7 @@ export default function FoodDetail() {
                 {addedToCart ? <><CheckIcon className="w-5 h-5" /> Ditambahkan!</> : '🛒 Tambah ke Keranjang'}
               </button>
               <button onClick={handleOrderNow}
-                className="flex-1 bg-orange-500 text-white py-4 rounded-2xl font-bold hover:bg-orange-600 transition">
+                className="flex-1 bg-orange-500 text-white py-3.5 sm:py-4 rounded-2xl font-bold hover:bg-orange-600 transition text-sm sm:text-base">
                 Pesan Sekarang
               </button>
             </div>
@@ -577,9 +578,9 @@ export default function FoodDetail() {
 
         {/* ===== SECTION ULASAN ===== */}
         <div className="mb-12">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
             <div>
-              <h2 className="text-2xl font-black text-gray-900" style={{ fontFamily: 'Playfair Display, serif' }}>
+              <h2 className="text-xl sm:text-2xl font-black text-gray-900" style={{ fontFamily: 'Playfair Display, serif' }}>
                 Ulasan Pembeli
               </h2>
               <p className="text-gray-400 text-sm mt-1">
@@ -611,13 +612,13 @@ export default function FoodDetail() {
 
           {/* Summary Rating */}
           {reviewCount > 0 && (
-            <div className="bg-white rounded-2xl shadow-sm p-6 mb-6 flex items-center gap-10">
+            <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6 mb-6 flex flex-col sm:flex-row items-center gap-6 sm:gap-10">
               <div className="text-center flex-shrink-0">
-                <p className="text-6xl font-black text-orange-500">{avgRating}</p>
+                <p className="text-5xl sm:text-6xl font-black text-orange-500">{avgRating}</p>
                 <RatingStars rating={Math.round(avgRating)} size="md" />
                 <p className="text-sm text-gray-400 mt-1">dari {reviewCount} ulasan</p>
               </div>
-              <div className="flex-1">
+              <div className="flex-1 w-full">
                 {[5, 4, 3, 2, 1].map(star => {
                   const count = reviews.filter(r => r.rating === star).length
                   const pct = reviewCount > 0 ? (count / reviewCount) * 100 : 0
@@ -645,7 +646,7 @@ export default function FoodDetail() {
 
           {/* Info beri ulasan */}
           {user && !userHasReviewed && (
-            <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4 mb-6 flex items-center justify-between">
+            <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <span className="text-2xl">⭐</span>
                 <div>
@@ -654,7 +655,7 @@ export default function FoodDetail() {
                 </div>
               </div>
               <Link to="/dashboard"
-                className="bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-orange-600 transition flex-shrink-0">
+                className="bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-orange-600 transition flex-shrink-0 text-center">
                 Ke Riwayat Pesanan
               </Link>
             </div>
@@ -679,17 +680,17 @@ export default function FoodDetail() {
                 const { date } = formatDateTime(review.created_at)
                 const uname = review.profiles?.full_name || 'Pengguna'
                 return (
-                  <div key={review.id} className="bg-white rounded-2xl shadow-sm p-5">
-                    <div className="flex items-start gap-4">
-                      <div className="w-11 h-11 rounded-full overflow-hidden bg-orange-100 flex-shrink-0 flex items-center justify-center">
+                  <div key={review.id} className="bg-white rounded-2xl shadow-sm p-4 sm:p-5">
+                    <div className="flex items-start gap-3 sm:gap-4">
+                      <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden bg-orange-100 flex-shrink-0 flex items-center justify-center">
                         {review.profiles?.avatar_url ? (
                           <img src={review.profiles.avatar_url} alt={uname} className="w-full h-full object-cover" />
                         ) : (
                           <span className="font-bold text-orange-500">{uname[0]?.toUpperCase()}</span>
                         )}
                       </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-1.5 flex-wrap">
                           <div>
                             <p className="font-semibold text-gray-800 text-sm">{uname}</p>
                             <p className="text-xs text-gray-400">{date}</p>
@@ -709,23 +710,23 @@ export default function FoodDetail() {
         {/* Related */}
         {related.length > 0 && (
           <div>
-            <h2 className="text-xl font-black text-gray-900 mb-4" style={{ fontFamily: 'Playfair Display, serif' }}>
+            <h2 className="text-lg sm:text-xl font-black text-gray-900 mb-4" style={{ fontFamily: 'Playfair Display, serif' }}>
               Menu Lainnya yang Mungkin Kamu Suka
             </h2>
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
               {related.map(item => (
                 <Link key={item.id} to={`/menu/${item.id}`}
                   className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition hover:-translate-y-1">
-                  <div className="h-36 bg-orange-50 overflow-hidden">
+                  <div className="h-28 sm:h-36 bg-orange-50 overflow-hidden">
                     {item.image ? (
                       <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-4xl">🍽️</div>
                     )}
                   </div>
-                  <div className="p-3">
-                    <p className="font-semibold text-gray-800 text-sm">{item.name}</p>
-                    <p className="text-orange-500 font-bold text-sm mt-1">
+                  <div className="p-2.5 sm:p-3">
+                    <p className="font-semibold text-gray-800 text-xs sm:text-sm line-clamp-1">{item.name}</p>
+                    <p className="text-orange-500 font-bold text-xs sm:text-sm mt-1">
                       Rp {item.price?.toLocaleString('id-ID')}
                       <span className="text-gray-400 font-normal text-xs">/{item.unit || 'porsi'}</span>
                     </p>

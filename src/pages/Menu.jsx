@@ -7,7 +7,7 @@ import {
   MagnifyingGlassIcon, HeartIcon, AdjustmentsHorizontalIcon,
   ChevronDownIcon, PlusIcon, XMarkIcon, UserIcon, LockClosedIcon,
   SquaresPlusIcon, CakeIcon, BeakerIcon, SparklesIcon,
-  ShoppingBagIcon, TagIcon, GlobeAltIcon
+  ShoppingBagIcon, TagIcon, GlobeAltIcon, FunnelIcon
 } from '@heroicons/react/24/outline'
 import { StarIcon as StarSolid, HeartIcon as HeartSolid } from '@heroicons/react/24/solid'
 
@@ -60,12 +60,12 @@ function LoginPopup({ show, onClose, message, navigate }) {
 function Toast({ show, message, type }) {
   if (!show) return null
   return (
-    <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-lg flex items-center gap-3 transition-all ${
+    <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-lg flex items-center gap-3 transition-all max-w-[90vw] ${
       type === 'success' ? 'bg-green-500 text-white'
       : type === 'wishlist' ? 'bg-red-500 text-white'
       : 'bg-gray-700 text-white'
     }`}>
-      <span className="text-lg">
+      <span className="text-lg flex-shrink-0">
         {type === 'success' ? '🛒' : type === 'wishlist' ? '❤️' : '🗑️'}
       </span>
       <span className="text-sm font-medium">{message}</span>
@@ -103,6 +103,7 @@ export default function Menu() {
   const [showLoginPopup, setShowLoginPopup] = useState(false)
   const [loginPopupMsg, setLoginPopupMsg] = useState('')
   const [toast, setToast] = useState({ show: false, message: '', type: '' })
+  const [showMobileFilter, setShowMobileFilter] = useState(false)
 
   useEffect(() => { fetchData() }, [])
 
@@ -240,20 +241,95 @@ export default function Menu() {
 
   const categoryTabs = [{ name: 'Semua' }, ...categories]
 
+  const FilterPanel = (
+    <div className="bg-white rounded-2xl shadow-sm p-5 lg:sticky lg:top-24">
+      <div className="flex justify-between items-center mb-5">
+        <h3 className="font-bold text-gray-800 flex items-center gap-2">
+          <AdjustmentsHorizontalIcon className="w-5 h-5 text-orange-500" />
+          Filter Menu
+        </h3>
+        <button onClick={() => { setActiveCategoryFilter([]); setPriceRange(0) }}
+          className="text-orange-500 text-xs hover:underline">Reset</button>
+      </div>
+
+      <div className="mb-5">
+        <div className="flex justify-between items-center mb-3">
+          <p className="font-semibold text-gray-700 text-sm">Kategori</p>
+          <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+        </div>
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={activeCategoryFilter.length === 0}
+              onChange={() => setActiveCategoryFilter([])} className="accent-orange-500" />
+            <span className="text-sm text-gray-600">Semua Kategori</span>
+          </label>
+          {categories.map(cat => {
+            const count = foods.filter(f => f.categories?.name === cat.name).length
+            return (
+              <label key={cat.id} className="flex items-center justify-between cursor-pointer">
+                <div className="flex items-center gap-2">
+                  <input type="checkbox"
+                    checked={activeCategoryFilter.includes(cat.name)}
+                    onChange={() => setActiveCategoryFilter(prev =>
+                      prev.includes(cat.name) ? prev.filter(c => c !== cat.name) : [...prev, cat.name]
+                    )}
+                    className="accent-orange-500" />
+                  <span className="text-sm text-gray-600">{cat.name}</span>
+                </div>
+                <span className="text-xs bg-orange-100 text-orange-500 px-1.5 py-0.5 rounded-full">{count}</span>
+              </label>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="mb-5">
+        <div className="flex justify-between items-center mb-3">
+          <p className="font-semibold text-gray-700 text-sm">Harga</p>
+          <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+        </div>
+        <div className="space-y-2">
+          {priceRanges.map((range, i) => (
+            <label key={i} className="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="price" checked={priceRange === i}
+                onChange={() => setPriceRange(i)} className="accent-orange-500" />
+              <span className="text-sm text-gray-600">{range.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="flex justify-between items-center mb-3">
+          <p className="font-semibold text-gray-700 text-sm">Rating</p>
+          <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+        </div>
+        <div className="space-y-2">
+          {['Semua Rating', '4★ ke atas', '3★ ke atas'].map((r, i) => (
+            <label key={i} className="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="rating" defaultChecked={i === 0} className="accent-orange-500" />
+              <span className="text-sm text-gray-600">{r}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <div className="min-h-screen bg-gray-50">
       <LoginPopup show={showLoginPopup} onClose={() => setShowLoginPopup(false)} message={loginPopupMsg} navigate={navigate} />
       <Toast show={toast.show} message={toast.message} type={toast.type} />
 
       {!user && (
-        <div className="bg-orange-500 text-white py-2.5 px-4 text-center text-sm">
+        <div className="bg-orange-500 text-white py-2.5 px-4 text-center text-xs sm:text-sm">
           <span>Kamu belum login. </span>
           <button onClick={() => navigate('/login')} className="font-bold underline hover:no-underline">Login sekarang</button>
           <span> untuk memesan dan menyimpan wishlist!</span>
         </div>
       )}
 
-      <div className="bg-white border-b border-gray-100 px-8 py-3">
+      <div className="bg-white border-b border-gray-100 px-4 sm:px-8 py-3">
         <p className="text-sm text-gray-400">
           <Link to="/" className="hover:text-orange-500">Beranda</Link>
           <span className="mx-2">›</span>
@@ -261,89 +337,25 @@ export default function Menu() {
         </p>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-6 flex gap-6">
+      <div className="max-w-7xl mx-auto px-4 py-6 flex flex-col lg:flex-row gap-6">
+
+        {/* MOBILE FILTER TOGGLE */}
+        <button onClick={() => setShowMobileFilter(v => !v)}
+          className="lg:hidden flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-2xl py-3 font-semibold text-sm text-gray-700 shadow-sm">
+          <FunnelIcon className="w-4 h-4 text-orange-500" />
+          {showMobileFilter ? 'Sembunyikan Filter' : 'Tampilkan Filter'}
+        </button>
 
         {/* SIDEBAR FILTER */}
-        <aside className="w-56 flex-shrink-0">
-          <div className="bg-white rounded-2xl shadow-sm p-5 sticky top-24">
-            <div className="flex justify-between items-center mb-5">
-              <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                <AdjustmentsHorizontalIcon className="w-5 h-5 text-orange-500" />
-                Filter Menu
-              </h3>
-              <button onClick={() => { setActiveCategoryFilter([]); setPriceRange(0) }}
-                className="text-orange-500 text-xs hover:underline">Reset</button>
-            </div>
-
-            <div className="mb-5">
-              <div className="flex justify-between items-center mb-3">
-                <p className="font-semibold text-gray-700 text-sm">Kategori</p>
-                <ChevronDownIcon className="w-4 h-4 text-gray-400" />
-              </div>
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={activeCategoryFilter.length === 0}
-                    onChange={() => setActiveCategoryFilter([])} className="accent-orange-500" />
-                  <span className="text-sm text-gray-600">Semua Kategori</span>
-                </label>
-                {categories.map(cat => {
-                  const count = foods.filter(f => f.categories?.name === cat.name).length
-                  return (
-                    <label key={cat.id} className="flex items-center justify-between cursor-pointer">
-                      <div className="flex items-center gap-2">
-                        <input type="checkbox"
-                          checked={activeCategoryFilter.includes(cat.name)}
-                          onChange={() => setActiveCategoryFilter(prev =>
-                            prev.includes(cat.name) ? prev.filter(c => c !== cat.name) : [...prev, cat.name]
-                          )}
-                          className="accent-orange-500" />
-                        <span className="text-sm text-gray-600">{cat.name}</span>
-                      </div>
-                      <span className="text-xs bg-orange-100 text-orange-500 px-1.5 py-0.5 rounded-full">{count}</span>
-                    </label>
-                  )
-                })}
-              </div>
-            </div>
-
-            <div className="mb-5">
-              <div className="flex justify-between items-center mb-3">
-                <p className="font-semibold text-gray-700 text-sm">Harga</p>
-                <ChevronDownIcon className="w-4 h-4 text-gray-400" />
-              </div>
-              <div className="space-y-2">
-                {priceRanges.map((range, i) => (
-                  <label key={i} className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="price" checked={priceRange === i}
-                      onChange={() => setPriceRange(i)} className="accent-orange-500" />
-                    <span className="text-sm text-gray-600">{range.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between items-center mb-3">
-                <p className="font-semibold text-gray-700 text-sm">Rating</p>
-                <ChevronDownIcon className="w-4 h-4 text-gray-400" />
-              </div>
-              <div className="space-y-2">
-                {['Semua Rating', '4★ ke atas', '3★ ke atas'].map((r, i) => (
-                  <label key={i} className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="rating" defaultChecked={i === 0} className="accent-orange-500" />
-                    <span className="text-sm text-gray-600">{r}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
+        <aside className={`w-full lg:w-56 flex-shrink-0 ${showMobileFilter ? 'block' : 'hidden'} lg:block`}>
+          {FilterPanel}
         </aside>
 
         {/* MAIN */}
-        <div className="flex-1">
-          <div className="flex justify-between items-start mb-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4 mb-4">
             <div>
-              <h1 className="text-2xl font-black text-gray-900">Semua Menu</h1>
+              <h1 className="text-xl sm:text-2xl font-black text-gray-900">Semua Menu</h1>
               <p className="text-gray-400 text-sm mt-1">Temukan berbagai pilihan makanan lezat untuk setiap kebutuhanmu.</p>
             </div>
             <div className="bg-green-50 border border-green-100 rounded-2xl px-4 py-3 flex items-center gap-3">
@@ -364,22 +376,24 @@ export default function Menu() {
           </div>
 
           {/* Category Tabs */}
-          <div className="flex gap-2 mb-4 flex-wrap">
-            {categoryTabs.map(cat => (
-              <button key={cat.name} onClick={() => setActiveCategory(cat.name)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition border ${
-                  activeCategory === cat.name
-                    ? 'bg-orange-500 text-white border-orange-500'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
-                }`}>
-                {getCategoryIcon(cat.name)}
-                {cat.name}
-              </button>
-            ))}
-            <div className="ml-auto flex items-center gap-2">
+          <div className="flex gap-2 mb-4 flex-wrap items-center">
+            <div className="flex gap-2 overflow-x-auto pb-1 -mb-1 sm:flex-wrap sm:overflow-visible" style={{ scrollbarWidth: 'none' }}>
+              {categoryTabs.map(cat => (
+                <button key={cat.name} onClick={() => setActiveCategory(cat.name)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition border flex-shrink-0 ${
+                    activeCategory === cat.name
+                      ? 'bg-orange-500 text-white border-orange-500'
+                      : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
+                  }`}>
+                  {getCategoryIcon(cat.name)}
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+            <div className="w-full sm:w-auto sm:ml-auto flex items-center gap-2">
               <span className="text-sm text-gray-400">Urutkan</span>
               <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-                className="border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none bg-white">
+                className="flex-1 sm:flex-none border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none bg-white">
                 <option value="popular">Terpopuler</option>
                 <option value="rating">Rating Tertinggi</option>
                 <option value="price_asc">Harga Terendah</option>
@@ -392,7 +406,7 @@ export default function Menu() {
 
           {/* Grid */}
           {loading ? (
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {[...Array(8)].map((_, i) => <div key={i} className="bg-white rounded-2xl h-64 animate-pulse" />)}
             </div>
           ) : filtered.length === 0 ? (
@@ -402,7 +416,7 @@ export default function Menu() {
               <p className="text-sm">Coba ubah filter atau kata kunci pencarian</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
               {filtered.map(food => {
                 const isWishlisted = wishlistIds.has(food.id)
                 const stats = getStats(food.id)
@@ -410,14 +424,14 @@ export default function Menu() {
                   <div key={food.id}
                     className="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-all hover:-translate-y-1 group">
                     <Link to={`/menu/${food.id}`}>
-                      <div className="relative h-44 overflow-hidden bg-orange-50">
+                      <div className="relative h-32 sm:h-44 overflow-hidden bg-orange-50">
                         {food.image ? (
                           <img src={food.image} alt={food.name}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-5xl">🍽️</div>
                         )}
-                        <span className={`absolute top-2 left-2 text-white text-xs px-2 py-1 rounded-full font-medium ${
+                        <span className={`absolute top-2 left-2 text-white text-[10px] sm:text-xs px-2 py-1 rounded-full font-medium ${
                           food.categories?.name?.includes('Catering') ? 'bg-purple-500'
                           : food.categories?.name?.includes('Ala Carte') ? 'bg-blue-500'
                           : food.categories?.name?.includes('Minuman') ? 'bg-cyan-500'
@@ -426,42 +440,42 @@ export default function Menu() {
                           {food.categories?.name}
                         </span>
                         <button onClick={e => handleToggleWishlist(e, food)}
-                          className="absolute top-2 right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm hover:scale-110 transition">
+                          className="absolute top-2 right-2 w-7 h-7 sm:w-8 sm:h-8 bg-white rounded-full flex items-center justify-center shadow-sm hover:scale-110 transition">
                           {isWishlisted
                             ? <HeartSolid className="w-4 h-4 text-red-500" />
                             : <HeartIcon className="w-4 h-4 text-gray-400" />
                           }
                         </button>
                         {food.min_order > 1 && (
-                          <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+                          <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] sm:text-xs px-2 py-1 rounded-full">
                             Min. {food.min_order} {food.unit}
                           </div>
                         )}
                       </div>
                     </Link>
 
-                    <div className="p-3">
+                    <div className="p-2.5 sm:p-3">
                       <Link to={`/menu/${food.id}`}>
-                        <h3 className="font-semibold text-gray-800 text-sm leading-tight mb-1 hover:text-orange-500 transition">
+                        <h3 className="font-semibold text-gray-800 text-xs sm:text-sm leading-tight mb-1 hover:text-orange-500 transition line-clamp-2">
                           {food.name}
                         </h3>
-                        <p className="text-gray-400 text-xs mb-2 line-clamp-1">{food.description}</p>
+                        <p className="text-gray-400 text-xs mb-2 line-clamp-1 hidden sm:block">{food.description}</p>
                       </Link>
-                      <p className="text-orange-500 font-bold text-sm mb-1">
+                      <p className="text-orange-500 font-bold text-xs sm:text-sm mb-1">
                         Rp {food.price?.toLocaleString('id-ID')}
                         <span className="text-gray-400 font-normal text-xs">/{food.unit || 'porsi'}</span>
                       </p>
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1">
-                          <StarSolid className="w-3.5 h-3.5 text-orange-400" />
+                        <div className="flex items-center gap-1 min-w-0">
+                          <StarSolid className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
                           <span className="text-xs text-gray-600 font-medium">
                             {stats.avgRating > 0 ? stats.avgRating : '-'}
                           </span>
-                          <span className="text-xs text-gray-300">•</span>
-                          <span className="text-xs text-gray-400">{stats.soldCount}+ terjual</span>
+                          <span className="text-xs text-gray-300 hidden xs:inline">•</span>
+                          <span className="text-xs text-gray-400 hidden xs:inline truncate">{stats.soldCount}+ terjual</span>
                         </div>
                         <button onClick={e => handleAddToCart(e, food)}
-                          className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center hover:bg-orange-600 transition shadow-sm shadow-orange-200">
+                          className="w-7 h-7 sm:w-8 sm:h-8 bg-orange-500 rounded-full flex items-center justify-center hover:bg-orange-600 transition shadow-sm shadow-orange-200 flex-shrink-0">
                           <PlusIcon className="w-4 h-4 text-white" />
                         </button>
                       </div>
