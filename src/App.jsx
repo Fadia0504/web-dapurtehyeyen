@@ -9,6 +9,8 @@ import Testimonials from './pages/Testimonials'
 import Contact from './pages/Contact'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import Dashboard from './pages/Dashboard'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import Navbar from './components/Navbar'
@@ -96,6 +98,8 @@ function App() {
             <Route path="/contact" element={<Contact />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/cart" element={<CustomerRoute><Cart /></CustomerRoute>} />
             <Route path="/checkout" element={<CustomerRoute><Checkout /></CustomerRoute>} />
             <Route path="/payment" element={<CustomerRoute><Payment /></CustomerRoute>} />
