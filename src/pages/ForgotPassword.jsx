@@ -52,7 +52,7 @@ export default function ForgotPassword() {
   }
 
   return (
-    <AuthShell imageSide="left" edgeLabel="RESET">
+    <AuthShell imageSide="left">
       <Link to="/" className="inline-flex items-center gap-2 mb-8 self-start md:hidden">
         <img
           src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/rawr.png"

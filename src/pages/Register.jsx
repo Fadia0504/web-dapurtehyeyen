@@ -37,7 +37,7 @@ export default function Register() {
   }
 
   return (
-    <AuthShell imageSide="right" edgeLabel="DAFTAR">
+    <AuthShell imageSide="right">
       <div className="flex justify-between items-center mb-6 md:hidden">
         <Link to="/" className="flex items-center gap-2">
           <img src="https://tgsrztwdaxkjyrerodnh.supabase.co/storage/v1/object/public/food-images/rawr.png"
